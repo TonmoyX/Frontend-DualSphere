@@ -4,11 +4,11 @@ The user-facing web app for **DualSphere**, a social network where you can post 
 
 This repo is one of three:
 
-| Repo | What it is | Default port |
-| --- | --- | --- |
-| **Frontend** (this repo) | The user-facing Next.js web app | `3000` |
-| Admin | The staff / moderation panel (Next.js) | `3001` |
-| Backend | Express API, PostgreSQL, Socket.io | `4000` |
+| Repo | What it is |
+| --- | --- |
+| **Frontend** (this repo) | The user-facing Next.js web app |
+| Admin | The staff / moderation panel (Next.js) |
+| Backend | Express API, PostgreSQL, Socket.io |
 
 The web app talks to the backend API, so the backend must be running for anything to work.
 
@@ -68,52 +68,11 @@ The web app talks to the backend API, so the backend must be running for anythin
 
 ---
 
-## Project structure
-
-```
-src/
-├── app/                  # App Router routes
-│   ├── page.tsx          # Landing / auth entry
-│   ├── feed/             # Home feed
-│   ├── post/[id]/        # Single post (+ OG image)
-│   ├── profile/[username]/
-│   ├── messages/ [id]/   # Chat
-│   ├── friends/  notifications/  saved/  search/  settings/
-│   ├── login/  signup/  verify-email/  forgot-password/  reset-password/
-│   ├── help/  guidelines/  terms/  privacy/  cookies/
-│   ├── sitemap.ts  robots.ts  manifest.ts  opengraph-image.tsx
-│   └── layout.tsx
-├── components/
-│   ├── auth/  post/  profile/  friends/  stories/  messages/  calls/
-│   ├── layout/           # navbar, account menu, site chrome
-│   ├── common/           # shared pieces (theme picker, video player, …)
-│   └── ui/               # shadcn/ui components
-├── lib/                  # api client, socket, upload, theme, SEO helpers, types
-└── providers/            # auth, settings, React Query, realtime bridge
-```
-
----
-
 ## Getting started
 
 ### Requirements
 - Node.js 20+
-- The **DualSphere backend** running (by default at `http://localhost:4000`)
-
-### Setup
-
-```bash
-# 1. Install dependencies
-npm install
-
-# 2. Create your local environment file
-cp .env.example .env.local
-
-# 3. Start the dev server
-npm run dev
-```
-
-Open http://localhost:3000.
+- The **DualSphere backend** running
 
 ### Environment variables
 
@@ -127,15 +86,6 @@ Set these in `.env.local`. All of them are public, browser-side values (`NEXT_PU
 | `NEXT_PUBLIC_MEDIA_URL` | Public media URL (must match the backend's media / R2 public URL) |
 
 > `.env.local` is gitignored. Only `.env.example` is committed.
-
-### Scripts
-
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the dev server |
-| `npm run build` | Production build |
-| `npm start` | Serve the production build |
-| `npm run lint` | Run ESLint |
 
 ---
 
