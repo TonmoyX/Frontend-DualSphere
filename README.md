@@ -1,36 +1,145 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DualSphere — Web App
 
-## Getting Started
+The user-facing web app for **DualSphere**, a social network where you can post either **with your identity** or **anonymously**, and switch between the two at any time.
 
-First, run the development server:
+This repo is one of three:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+| Repo | What it is | Default port |
+| --- | --- | --- |
+| **Frontend** (this repo) | The user-facing Next.js web app | `3000` |
+| Admin | The staff / moderation panel (Next.js) | `3001` |
+| Backend | Express API, PostgreSQL, Socket.io | `4000` |
+
+The web app talks to the backend API, so the backend must be running for anything to work.
+
+---
+
+## Tech stack
+
+- **Next.js 16** (App Router) + **React 19** + **TypeScript**
+- **Tailwind CSS v4** + **shadcn/ui** (Radix primitives) + `tw-animate-css`
+- **TanStack Query** for server state, caching and optimistic updates
+- **Socket.io client** for realtime features
+- **Framer Motion** for animations
+- **Zod** for form validation
+- **date-fns**, **lucide-react** icons, **sonner** toasts
+
+---
+
+## Features
+
+### Authentication
+- Landing page with sign up and login
+- Email verification, forgot / reset password
+- Two-factor login (TOTP)
+- Auth uses **HttpOnly cookies**, so JavaScript never sees the tokens. Expired access tokens are refreshed automatically: one refresh at a time, then the request is retried.
+
+### Feed and posts
+- Home feed with a switch between **Everything / Identity / Anonymous**
+- Post composer: choose identity or anonymous, add text, photos and video
+- Media grid, built-in video player, reels
+- Likes, nested comment threads, share (with share rules), save for later, report
+- Single post page and post modal
+- Live comment updates over Socket.io
+
+### Profiles and friends
+- Profile pages with posts, photos, reels and friends tabs
+- Avatar upload, profile editing, profile lock
+- Friend requests, friend list, suggestions
+
+### Stories
+- Story bar, story creation (media or text on a background), full-screen viewer
+- Views, reactions and replies
+
+### Messaging and calls
+- Conversation list and chat threads, one-to-one and group
+- Message requests, reactions, edit / delete / forward, pinned messages, in-chat search
+- Voice messages, link previews, animated emoji, typing indicators, read state
+- Voice and video calls (WebRTC)
+
+### More
+- Notifications with unread counts in realtime
+- Search for users and content
+- Saved posts
+- Settings: profile, security (password, 2FA), privacy, active sessions, appearance / theme
+- "Report a problem" dialog
+- Help, community guidelines, terms, privacy and cookies pages
+- SEO: metadata, dynamic Open Graph images for posts and profiles, `sitemap.xml`, `robots.txt`, web app manifest
+
+---
+
+## Project structure
+
+```
+src/
+├── app/                  # App Router routes
+│   ├── page.tsx          # Landing / auth entry
+│   ├── feed/             # Home feed
+│   ├── post/[id]/        # Single post (+ OG image)
+│   ├── profile/[username]/
+│   ├── messages/ [id]/   # Chat
+│   ├── friends/  notifications/  saved/  search/  settings/
+│   ├── login/  signup/  verify-email/  forgot-password/  reset-password/
+│   ├── help/  guidelines/  terms/  privacy/  cookies/
+│   ├── sitemap.ts  robots.ts  manifest.ts  opengraph-image.tsx
+│   └── layout.tsx
+├── components/
+│   ├── auth/  post/  profile/  friends/  stories/  messages/  calls/
+│   ├── layout/           # navbar, account menu, site chrome
+│   ├── common/           # shared pieces (theme picker, video player, …)
+│   └── ui/               # shadcn/ui components
+├── lib/                  # api client, socket, upload, theme, SEO helpers, types
+└── providers/            # auth, settings, React Query, realtime bridge
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Getting started
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Requirements
+- Node.js 20+
+- The **DualSphere backend** running (by default at `http://localhost:4000`)
 
-## Learn More
+### Setup
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# 1. Install dependencies
+npm install
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# 2. Create your local environment file
+cp .env.example .env.local
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# 3. Start the dev server
+npm run dev
+```
 
-## Deploy on Vercel
+Open http://localhost:3000.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Environment variables
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Set these in `.env.local`. All of them are public, browser-side values (`NEXT_PUBLIC_*`). **Never put secrets here.**
+
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_API_URL` | Backend API base URL |
+| `NEXT_PUBLIC_SITE_URL` | Public URL of this web app (used for SEO and OG links) |
+| `NEXT_PUBLIC_ADMIN_URL` | Admin panel URL (shown to staff accounts) |
+| `NEXT_PUBLIC_MEDIA_URL` | Public media URL (must match the backend's media / R2 public URL) |
+
+> `.env.local` is gitignored. Only `.env.example` is committed.
+
+### Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm run build` | Production build |
+| `npm start` | Serve the production build |
+| `npm run lint` | Run ESLint |
+
+---
+
+## Notes
+
+- This project uses a recent Next.js version with breaking changes compared to older releases. See `AGENTS.md` and the docs in `node_modules/next/dist/docs/` before changing framework-level code.
+- The backend's CORS whitelist (`CORS_ORIGINS`) must include this app's URL, or requests that use cookies will fail.
