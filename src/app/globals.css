@@ -1,26 +1,196 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-dm-sans);
+  --font-mono: var(--font-jetbrains);
+  --font-heading: var(--font-display);
+  --color-identity: var(--identity);
+  --color-anon: var(--anon);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* DualSphere palette — light (:root) and dark (.dark). Dark matches the system design doc. */
+:root {
+  --background: #f0f2f5;
+  --foreground: #14141f;
+  --card: #ffffff;
+  --card-foreground: #14141f;
+  --popover: #ffffff;
+  --popover-foreground: #14141f;
+  --primary: #5b52f0;
+  --primary-foreground: #ffffff;
+  --secondary: #e9ebf1;
+  --secondary-foreground: #14141f;
+  --muted: #eceef3;
+  --muted-foreground: #5f6178;
+  --accent: #e9ebf1;
+  --accent-foreground: #14141f;
+  --destructive: #dc2626;
+  --border: rgba(20, 20, 40, 0.10);
+  --input: rgba(20, 20, 40, 0.16);
+  --ring: #6c63ff;
+  --identity: #5b52f0;
+  --anon: #0b9a72;
+  --warning: #b45309;
+  --success: #0b9a72;
+  --chart-1: #6c63ff;
+  --chart-2: #10b981;
+  --chart-3: #0891b2;
+  --chart-4: #d97706;
+  --chart-5: #db2777;
+  --radius: 0.75rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #14141f;
+  --sidebar-primary: #5b52f0;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef0f5;
+  --sidebar-accent-foreground: #14141f;
+  --sidebar-border: rgba(20, 20, 40, 0.08);
+  --sidebar-ring: #6c63ff;
+  --grid-line: rgba(20, 20, 40, 0.045);
+  --glow: rgba(108, 99, 255, 0.12);
+  color-scheme: light;
+}
+
+.dark {
+  --background: #0a0a0f;
+  --foreground: #e8e8f0;
+  --card: #111118;
+  --card-foreground: #e8e8f0;
+  --popover: #16161f;
+  --popover-foreground: #e8e8f0;
+  --primary: #6c63ff;
+  --primary-foreground: #ffffff;
+  --secondary: #1c1c28;
+  --secondary-foreground: #e8e8f0;
+  --muted: #16161f;
+  --muted-foreground: #8888a8;
+  --accent: #1c1c28;
+  --accent-foreground: #e8e8f0;
+  --destructive: #f87171;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #a78bfa;
+  --identity: #8b84ff;
+  --anon: #22d3a0;
+  --warning: #fbbf24;
+  --success: #22d3a0;
+  --chart-1: #6c63ff;
+  --chart-2: #22d3a0;
+  --chart-3: #22d3ee;
+  --chart-4: #fbbf24;
+  --chart-5: #f472b6;
+  --radius: 0.75rem;
+  --sidebar: #0e0e15;
+  --sidebar-foreground: #e8e8f0;
+  --sidebar-primary: #6c63ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1c1c28;
+  --sidebar-accent-foreground: #e8e8f0;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --sidebar-ring: #a78bfa;
+  --grid-line: rgba(255, 255, 255, 0.03);
+  --glow: rgba(108, 99, 255, 0.18);
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+  }
+  h1, h2, h3, .font-heading {
+    font-family: var(--font-display), var(--font-dm-sans), sans-serif;
+    letter-spacing: -0.015em;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(135deg, var(--foreground) 30%, var(--identity) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .bg-grid {
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .glass {
+    background: color-mix(in oklab, var(--card) 78%, transparent);
+    backdrop-filter: blur(14px);
+  }
 }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--secondary); border-radius: 4px; }
+
+/* Chat background: plain white (light) / plain dark (dark).
+   --card is re-scoped so received bubbles, chips and cards inside the chat stay visible on it. */
+.chat-wallpaper {
+  background: #ffffff;
+  --card: #f0f2f5;
+  --card-foreground: #050505;
+}
+.dark .chat-wallpaper {
+  background: #0a0a0f;
+  --card: #22222b;
+  --card-foreground: #f2f2f7;
+}
+
+/* No browser bounce/pull-to-reload (it drags the navbar along); ElasticPull gives the page its own gentle pull */
+html, body { overscroll-behavior-y: none; }
