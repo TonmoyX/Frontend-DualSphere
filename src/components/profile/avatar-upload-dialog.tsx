@@ -12,11 +12,31 @@ import { errorMessage, put } from "@/lib/api";
 import type { SelfUser } from "@/lib/types";
 import { uploadMedia } from "@/lib/upload";
 
+type Kind = "avatar" | "cover";
+
+const COPY: Record<Kind, { title: string; shareHint: string; done: string; shared: string; alt: string }> = {
+  avatar: {
+    title: "Update profile picture",
+    shareHint: "{copy.shareHint}",
+    done: "Profile picture updated",
+    shared: "Profile picture updated and shared to the feed",
+    alt: "New profile picture preview",
+  },
+  cover: {
+    title: "Update cover photo",
+    shareHint: "Post an update so people see your new cover photo.",
+    done: "Cover photo updated",
+    shared: "Cover photo updated and shared to the feed",
+    alt: "New cover photo preview",
+  },
+};
+
 /**
- * Profile-picture update with preview and a "Share to feed" switch.
+ * Profile-picture / cover-photo update with preview and a "Share to feed" switch.
  * Opens the file picker immediately; the dialog appears once a photo is chosen.
  */
-export function AvatarUploadDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function AvatarUploadDialog({ open, onOpenChange, kind = "avatar" }: { open: boolean; onOpenChange: (o: boolean) => void; kind?: Kind }) {
+  const copy = COPY[kind];
   const qc = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -43,13 +63,14 @@ export function AvatarUploadDialog({ open, onOpenChange }: { open: boolean; onOp
     if (!file) return;
     setBusy(true);
     try {
-      const m = await uploadMedia(file, "avatar", setProgress);
-      const { user } = await put<{ user: SelfUser }>("/users/me", { avatarMediaId: m.id, shareAvatarToFeed: share });
+      const m = await uploadMedia(file, kind, setProgress);
+      const body = kind === "avatar" ? { avatarMediaId: m.id, shareAvatarToFeed: share } : { coverMediaId: m.id, shareCoverToFeed: share };
+      const { user } = await put<{ user: SelfUser }>("/users/me", body);
       qc.setQueryData(["me"], user);
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["profile-posts"] });
       if (share) qc.invalidateQueries({ queryKey: ["feed"] });
-      toast.success(share ? "Profile picture updated and shared to the feed" : "Profile picture updated");
+      toast.success(share ? copy.shared : copy.done);
       close();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -76,14 +97,19 @@ export function AvatarUploadDialog({ open, onOpenChange }: { open: boolean; onOp
       <Dialog open={open && !!file} onOpenChange={(o) => !o && !busy && close()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Update profile picture</DialogTitle>
+            <DialogTitle>{copy.title}</DialogTitle>
             <DialogDescription>Location and device data are removed from the photo before upload.</DialogDescription>
           </DialogHeader>
 
           <div className="flex justify-center py-2">
-            <div className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {preview && <img src={preview} alt="New profile picture preview" className="size-56 rounded-full border-4 border-card object-cover shadow-xl" />}
+            <div className={kind === "cover" ? "relative w-full" : "relative"}>
+              {preview && (kind === "cover" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={preview} alt={copy.alt} className="aspect-[3/1] w-full rounded-xl border object-cover shadow-xl" />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={preview} alt={copy.alt} className="size-56 rounded-full border-4 border-card object-cover shadow-xl" />
+              ))}
               <button
                 type="button"
                 onClick={() => input.current?.click()}
@@ -117,4 +143,9 @@ export function AvatarUploadDialog({ open, onOpenChange }: { open: boolean; onOp
       </Dialog>
     </>
   );
+}
+
+/** Cover-photo variant of the same dialog. */
+export function CoverUploadDialog(props: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  return <AvatarUploadDialog {...props} kind="cover" />;
 }

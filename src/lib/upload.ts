@@ -45,7 +45,7 @@ async function stripMetadata(file: File): Promise<File> {
 /** Direct-to-storage upload: presign → PUT (Cloudflare R2 or local) → confirm. */
 export async function uploadMedia(
   input: File,
-  purpose: "post" | "avatar" | "cover" | "message" | "story" = "post",
+  purpose: "post" | "avatar" | "cover" | "message" | "story" | "community" | "ad" = "post",
   onProgress?: (pct: number) => void,
 ): Promise<UploadedMedia> {
   const stripped = await stripMetadata(input);

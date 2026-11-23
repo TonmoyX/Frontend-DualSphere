@@ -28,7 +28,7 @@ export default async function PostOgImage({ params }: { params: Promise<{ id: st
   const src = p.isShare && p.sharedPost ? p.sharedPost : p; // a share previews the original's media
   const anon = p.visibility === "anonymous" || !p.author;
   const who = anon ? "Anonymous" : p.author!.displayName;
-  const text = p.content || src.content || (src.postType === "avatar_update" ? `${who} updated their profile picture` : "");
+  const text = p.content || src.content || (src.postType === "avatar_update" ? `${who} updated their profile picture` : src.postType === "cover_update" ? `${who} updated their cover photo` : "");
   const imgMedia = src.media.find((m) => m.type === "image" && drawable(m.url, m.mime));
   const [image, avatar] = await Promise.all([inlineImage(imgMedia?.url), anon ? null : inlineImage(p.author!.avatarUrl)]);
   const video = !image && src.media.some((m) => m.type === "video");

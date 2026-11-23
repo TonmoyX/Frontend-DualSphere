@@ -40,6 +40,7 @@ export function SharedPostPreview({ post, link = false }: { post: Post; link?: b
             <TimeAgo date={post.createdAt} />
           </div>
           {post.postType === "avatar_update" && <p className="text-sm text-muted-foreground">updated their profile picture</p>}
+          {post.postType === "cover_update" && <p className="text-sm text-muted-foreground">updated their cover photo</p>}
           {post.content && <p className="mt-1 line-clamp-6 text-[15px] leading-relaxed break-words whitespace-pre-wrap">{post.content}</p>}
         </div>
       </div>

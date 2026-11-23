@@ -40,7 +40,7 @@ export function ReelsTab({ p }: { p: Profile }) {
           {p.isMe ? "Videos you share in identity posts will appear here as reels." : `Videos ${p.displayName.split(" ")[0]} shares will appear here.`}
         </EmptyState>
       )}
-      <div className="grid grid-cols-3 gap-1 sm:gap-2">
+      <div className="grid grid-cols-3 gap-1 sm:gap-2 md:grid-cols-4 lg:grid-cols-5">
         {reels.map((r, i) => <ReelThumb key={r.id} reel={r} onOpen={() => setOpen(i)} />)}
       </div>
       {q.hasNextPage && (

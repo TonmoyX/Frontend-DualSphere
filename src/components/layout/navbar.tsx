@@ -1,12 +1,12 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Home, Search, Send, Users } from "lucide-react";
+import { Bell, Clapperboard, Home, Search, Send, Users } from "lucide-react";
+import { GroupsIcon } from "@/components/common/groups-icon";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, useState } from "react";
+import { useState, type ComponentType } from "react";
 import { Logo } from "@/components/common/bits";
-import { FeedModeSwitch } from "@/components/post/feed-mode-switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -43,7 +43,7 @@ export function Navbar() {
   });
 
   // Icon-only nav (label in a tooltip + aria-label for screen readers)
-  const navLink = (href: string, label: string, Icon: typeof Home, badge?: number) => {
+  const navLink = (href: string, label: string, Icon: ComponentType<{ className?: string; strokeWidth?: number }>, badge?: number) => {
     const active = href === "/" ? pathname === "/feed" || pathname === "/" : pathname.startsWith(href);
     return (
       <Tooltip key={href}>
@@ -72,10 +72,12 @@ export function Navbar() {
 
   return (
     <header className="glass sticky top-0 z-40 border-b">
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-3 sm:px-4">
+      <div className="flex h-14 items-center gap-2 px-3 sm:px-4 lg:px-6">
+        {/* Left: logo + search (equal flex with the right side keeps the middle truly centred) */}
+        <div className="flex min-w-0 flex-1 items-center gap-3">
         <Logo name={settings.site.name} hideName className="shrink-0" />
         <form
-          className="relative hidden w-56 shrink-0 sm:block lg:w-60"
+          className="relative hidden w-full max-w-64 min-w-0 lg:block"
           onSubmit={(e) => {
             e.preventDefault();
             if (q.trim()) router.push(`/search?q=${encodeURIComponent(q.trim())}`);
@@ -85,22 +87,21 @@ export function Navbar() {
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search DualSphere" className="h-10 rounded-full bg-muted pl-9" aria-label="Search" />
         </form>
 
-        {/* Feed filter — centre of the navbar on desktop */}
-        <div className="hidden min-w-0 flex-1 justify-center md:flex">
-          {/* only on the home feed; hidden on every other page */}
-          {user && (pathname === "/" || pathname === "/feed") && (
-            <Suspense>
-              <FeedModeSwitch layoutId="feed-mode-nav" />
-            </Suspense>
-          )}
+        <Link href="/search" className="grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-accent lg:hidden" aria-label="Search">
+          <Search className="size-6" />
+        </Link>
         </div>
 
-        <nav className="ml-auto flex items-center gap-1 sm:gap-1.5 md:ml-0">
-          {navLink("/", "Feed", Home)}
-          <Link href="/search" className="grid size-11 place-items-center rounded-full text-muted-foreground hover:bg-accent sm:hidden" aria-label="Search">
-            <Search className="size-6" />
-          </Link>
+        {/* Centre: main sections, in order */}
+        <nav aria-label="Main" className="flex shrink-0 items-center gap-0.5 sm:gap-2 lg:gap-4">
+          {navLink("/", "Home", Home)}
+          {navLink("/reels", "Reels", Clapperboard)}
           {user && navLink("/friends", "Friends", Users, friendCounts?.incoming)}
+          {navLink("/communities", "Communities", GroupsIcon)}
+        </nav>
+
+        {/* Right: messages, notifications, profile */}
+        <nav aria-label="Account" className="flex min-w-0 flex-1 items-center justify-end gap-0.5 sm:gap-1.5">
           {user && settings.features.messagingEnabled && navLink("/messages", "Messages", Send, (dmUnread?.primary ?? 0) + (dmUnread?.requests ?? 0))}
           {user && navLink("/notifications", "Notifications", Bell, unread?.count)}
 

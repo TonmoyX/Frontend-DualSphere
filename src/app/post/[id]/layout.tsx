@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const anon = p.visibility === "anonymous" || !p.author;
   const who = anon ? "Anonymous" : p.author!.displayName;
-  const text = p.postType === "avatar_update" ? `${who} updated their profile picture` : p.content ? snippet(p.content, 140) : `${who} shared a post`;
+  const text = p.postType === "avatar_update" ? `${who} updated their profile picture` : p.postType === "cover_update" ? `${who} updated their cover photo` : p.content ? snippet(p.content, 140) : `${who} shared a post`;
   const title = anon ? `Anonymous post: “${snippet(text, 60)}”` : `${who} on DualSphere: “${snippet(text, 60)}”`;
   const url = `/post/${p.id}`;
   return {

@@ -80,10 +80,11 @@ export function UserAvatar({ src, name, className, style }: { src?: string | nul
 
 /** Anonymous posts get a generic mask avatar — never derived from the author. */
 export function AnonAvatar({ className }: { className?: string }) {
+  // <span> (not <div>) so it can sit inside text like a notification sentence — still display:grid via the class
   return (
-    <div className={cn("grid size-10 shrink-0 place-items-center rounded-full border border-anon/25 bg-anon/10 text-anon", className)}>
+    <span className={cn("grid size-10 shrink-0 place-items-center rounded-full border border-anon/25 bg-anon/10 text-anon", className)}>
       <VenetianMask className="size-5" />
-    </div>
+    </span>
   );
 }
 

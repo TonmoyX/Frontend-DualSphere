@@ -3,8 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bookmark, ChevronLeft, ChevronRight, CircleHelp, FileText, KeyRound, Laptop, LifeBuoy, Lock, LogOut, MessageSquareWarning, Moon, Settings,
-  ScrollText, Shield, ShieldCheck, UserRound,
-} from "lucide-react";
+  ScrollText, Shield, ShieldCheck, UserRound, Megaphone, Sparkles, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -118,6 +117,9 @@ export function AccountMenu() {
                   </div>
 
                   <Row icon={<Bookmark />} label="Saved" hint="Posts you've saved" href="/saved" onClick={close} />
+                  <Row icon={<Sparkles />} label="Creator studio" hint="Memberships, tips, paid posts" href="/creator" onClick={close} />
+                  <Row icon={<Wallet />} label="Wallet" hint="Earnings, payouts, ad balance" href="/wallet" onClick={close} />
+                  <Row icon={<Megaphone />} label="Ads Manager" hint="Business pages, campaigns, AI Ad Studio" href="/ads" onClick={close} />
                   <Row icon={<Settings />} label="Settings & privacy" chevron onClick={() => setPanel("settings")} />
                   <Row icon={<CircleHelp />} label="Help & support" chevron onClick={() => setPanel("help")} />
                   <Row icon={<MessageSquareWarning />} label="Report a problem" hint="⌘ B" onClick={() => { close(); setReporting(true); }} />

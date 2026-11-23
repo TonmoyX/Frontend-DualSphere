@@ -2,7 +2,10 @@
 
 import { useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bookmark, BookmarkCheck, Check, Flag, Heart, Link2, MessageCircle, MoreHorizontal, Repeat2, Trash2, VenetianMask } from "lucide-react";
+import { Bookmark, BookmarkCheck, Check, Clock, EyeOff, Flag, Heart, Link2, MessageCircle, MoreHorizontal, Pin, PinOff, Lock, Repeat2, ShieldX, Sparkles, TimerOff, Trash2, VenetianMask } from "lucide-react";
+import { GroupsIcon } from "@/components/common/groups-icon";
+import { LockedPostPanel } from "@/components/money/pay";
+import { CommunityRemoveDialog, useCommunityPage } from "@/components/community/community-context";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -30,7 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { del, errorMessage, patch, post as apiPost } from "@/lib/api";
 import type { FeedPage, Post, SharePolicy } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, formatMoney } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
 import { FOCUS_COMPOSER_EVENT } from "./comment-thread";
 import { MediaGrid } from "./media-grid";
@@ -55,7 +58,12 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
   const router = useRouter();
   const [reportOpen, setReportOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [modRemoveOpen, setModRemoveOpen] = useState(false);
   const anon = post.visibility === "anonymous";
+  // On a community page, its mods get pin/remove (the API re-checks the role)
+  const page = useCommunityPage();
+  const onOwnCommunityPage = !!post.community && page?.slug === post.community.slug;
+  const canCommunityModerate = onOwnCommunityPage && !!page?.canModerate && !post.isRemoved;
 
   const patchEverywhere = (fn: (p: Post) => Post) => {
     for (const key of ["feed", "profile-posts", "saved"]) {
@@ -113,6 +121,34 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
 
   const requireUser = (fn: () => void) => () => (user ? fn() : router.push("/login"));
 
+  // Feed controls (like Facebook): hide this post, or snooze its author for 30 days. Both can be undone.
+  const dropFromFeeds = (match: (p: Post) => boolean) => qc.setQueriesData<InfiniteData<FeedPage>>({ queryKey: ["feed"] }, (d) =>
+    d ? { ...d, pages: d.pages.map((pg) => ({ ...pg, posts: pg.posts.filter((p) => !match(p)) })) } : d,
+  );
+  const hidePost = () => {
+    dropFromFeeds((p) => p.id === post.id);
+    apiPost(`/feed/hide/${post.id}`)
+      .then(() => toast("Post hidden", { description: "You'll see fewer posts like this.", action: { label: "Undo", onClick: () => void del(`/feed/hide/${post.id}`).then(() => qc.invalidateQueries({ queryKey: ["feed"] })) } }))
+      .catch((e) => { toast.error(errorMessage(e)); qc.invalidateQueries({ queryKey: ["feed"] }); });
+  };
+  const snoozeAuthor = () => {
+    const a = post.author;
+    if (!a) return;
+    dropFromFeeds((p) => p.author?.id === a.id);
+    apiPost(`/feed/snooze/${a.id}`)
+      .then(() => toast(`Snoozed ${a.displayName} for 30 days`, { action: { label: "Undo", onClick: () => void del(`/feed/snooze/${a.id}`).then(() => qc.invalidateQueries({ queryKey: ["feed"] })) } }))
+      .catch((e) => { toast.error(errorMessage(e)); qc.invalidateQueries({ queryKey: ["feed"] }); });
+  };
+
+  const pin = useMutation({
+    mutationFn: (on: boolean) => apiPost(`/communities/${post.community!.slug}/posts/${post.id}/pin`, { pinned: on }),
+    onSuccess: (_r, on) => {
+      toast.success(on ? "Pinned to the top of the community" : "Unpinned");
+      qc.invalidateQueries({ queryKey: ["community-posts", post.community!.slug] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
   return (
     <motion.article
       layout
@@ -153,6 +189,8 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
                 <RoleBadge role={post.author.role} />
                 {post.postType === "avatar_update" ? (
                   <span className="text-sm text-muted-foreground">updated their profile picture</span>
+                ) : post.postType === "cover_update" ? (
+                  <span className="text-sm text-muted-foreground">updated their cover photo</span>
                 ) : post.isShare ? (
                   <span className="text-sm text-muted-foreground">shared a post</span>
                 ) : (
@@ -166,6 +204,19 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
             </Link>
             {post.isOwner && anon && <span className="text-[11px] text-muted-foreground">(only you can see this is yours)</span>}
           </div>
+          {(post.community && !onOwnCommunityPage) || post.isPinned || post.isPending || (post.access && post.access !== "public") ? (
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              {post.community && !onOwnCommunityPage && (
+                <Link href={`/c/${post.community.slug}`} className="inline-flex items-center gap-1 font-medium hover:text-foreground hover:underline">
+                  <GroupsIcon className="size-3.5" /> {post.community.name}
+                </Link>
+              )}
+              {post.isPinned && <span className="inline-flex items-center gap-1 font-medium text-primary"><Pin className="size-3.5" /> Pinned</span>}
+              {post.access === "paid" && <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-700 dark:text-amber-400"><Lock className="size-3" /> Paid{post.priceMinor ? ` · ${formatMoney(post.priceMinor, post.currency)}` : ""}</span>}
+              {post.access === "subscribers" && <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 font-medium text-primary"><Sparkles className="size-3" /> Members only</span>}
+              {post.isPending && <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-600 dark:text-amber-400"><Clock className="size-3.5" /> Waiting for approval</span>}
+            </div>
+          ) : null}
         </div>
 
         <DropdownMenu>
@@ -205,10 +256,36 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
             )}
+            {user && !post.isOwner && v === "feed" && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={hidePost} className="items-start gap-2.5 py-2">
+                  <EyeOff className="mt-0.5" />
+                  <span><span className="block font-medium">Hide post</span><span className="block text-xs text-muted-foreground">See fewer posts like this</span></span>
+                </DropdownMenuItem>
+                {!anon && post.author && post.author.id !== user.id && (
+                  <DropdownMenuItem onClick={snoozeAuthor} className="items-start gap-2.5 py-2">
+                    <TimerOff className="mt-0.5" />
+                    <span><span className="block font-medium">Snooze {post.author.displayName} for 30 days</span><span className="block text-xs text-muted-foreground">Temporarily stop seeing their posts</span></span>
+                  </DropdownMenuItem>
+                )}
+              </>
+            )}
             {!post.isOwner && (
               <DropdownMenuItem onClick={requireUser(() => setReportOpen(true))}>
                 <Flag /> Report
               </DropdownMenuItem>
+            )}
+            {canCommunityModerate && !post.isPending && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => pin.mutate(!post.isPinned)}>
+                  {post.isPinned ? <><PinOff /> Unpin</> : <><Pin /> Pin to top</>}
+                </DropdownMenuItem>
+                <DropdownMenuItem variant="destructive" onClick={() => setModRemoveOpen(true)}>
+                  <ShieldX /> Remove from community
+                </DropdownMenuItem>
+              </>
             )}
             {post.isOwner && (
               <>
@@ -241,6 +318,17 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
         ) : (
           // Edge to edge: no side padding, like Facebook
           post.media.length > 0 && <div className="-mx-4 mt-3"><MediaGrid media={post.media} bleed /></div>
+        )}
+        {post.locked && post.access && post.access !== "public" && post.author && (
+          <LockedPostPanel
+            postId={post.id}
+            access={post.access}
+            priceMinor={post.priceMinor ?? null}
+            currency={post.currency ?? null}
+            mediaCount={post.lockedMediaCount ?? 0}
+            authorUsername={post.author.username}
+            authorName={post.author.displayName}
+          />
         )}
         {post.isShare && (post.sharedPost ? <SharedPostPreview post={post.sharedPost} link /> : <SharedPostUnavailable />)}
 
@@ -276,6 +364,7 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
       </div>
 
       {v === "feed" && modalOpen && <PostModal post={post} open={modalOpen} onOpenChange={setModalOpen} />}
+      {canCommunityModerate && <CommunityRemoveDialog slug={post.community!.slug} postId={post.id} open={modRemoveOpen} onOpenChange={setModRemoveOpen} />}
       <ReportDialog open={reportOpen} onOpenChange={setReportOpen} target={{ type: "post", id: post.id }} />
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

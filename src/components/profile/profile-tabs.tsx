@@ -62,7 +62,7 @@ export function FriendsTab({ p }: { p: Profile }) {
       {data && data.mode !== "hidden" && data.mode !== "locked" && list.length === 0 && (
         <EmptyState icon={<Users className="size-8" />} title={q ? "No one matches" : data.mode === "mutual" ? "No mutual friends" : "No friends to show"} />
       )}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {list.map((f) => (
           <FriendCardItem key={f.id} u={f} status={f.viewerStatus ?? (me?.id === f.id ? "self" : "none")} />
         ))}
@@ -103,7 +103,7 @@ export function PhotosTab({ p }: { p: Profile }) {
           {p.isMe ? "Photos you share in identity posts will appear here." : `Photos ${p.displayName.split(" ")[0]} shares will appear here.`}
         </EmptyState>
       )}
-      <div className="grid grid-cols-3 gap-1 sm:gap-2">
+      <div className="grid grid-cols-3 gap-1 sm:gap-2 md:grid-cols-4 lg:grid-cols-5">
         {photos.map((ph, i) => (
           <button key={`${ph.postId}-${ph.url}`} onClick={() => setOpen(i)} className="group relative aspect-square overflow-hidden rounded-md bg-muted sm:rounded-lg" aria-label="Open photo">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -134,7 +134,7 @@ export function PhotosTab({ p }: { p: Profile }) {
                 <button onClick={() => setOpen(open! + 1)} className="absolute top-1/2 right-3 grid size-10 -translate-y-1/2 place-items-center rounded-full bg-white/15 text-white hover:bg-white/25" aria-label="Next"><ChevronRight /></button>
               )}
               <div className="flex items-center justify-between gap-3 px-4 py-3 text-sm text-white/80">
-                <span>{current.isProfilePicture ? "Profile picture · " : ""}{new Date(current.createdAt).toLocaleDateString()}</span>
+                <span>{current.isProfilePicture ? "Profile picture · " : current.isCoverPhoto ? "Cover photo · " : ""}{new Date(current.createdAt).toLocaleDateString()}</span>
                 <Link href={`/post/${current.postId}`} className="flex items-center gap-1 font-medium text-white hover:underline">View post <ExternalLink className="size-3.5" /></Link>
               </div>
             </div>

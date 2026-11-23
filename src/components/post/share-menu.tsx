@@ -23,7 +23,7 @@ const postUrl = (id: string) => `${window.location.origin}/post/${id}`;
 /** Put a freshly created post at the top of the matching feeds (the socket echo is de-duplicated by id). */
 export function prependPost(qc: QueryClient, p: Post, username?: string) {
   for (const key of [["feed", "all"], ["feed", p.visibility]]) {
-    qc.setQueryData<InfiniteData<FeedPage>>(key, (d) =>
+    qc.setQueriesData<InfiniteData<FeedPage>>({ queryKey: key }, (d) =>
       d ? { ...d, pages: [{ ...d.pages[0], posts: [p, ...d.pages[0].posts.filter((x) => x.id !== p.id)] }, ...d.pages.slice(1)] } : d,
     );
   }

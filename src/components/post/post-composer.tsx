@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, ImagePlus, Lock, UserRound, VenetianMask, X } from "lucide-react";
 import Link from "next/link";
@@ -10,11 +10,11 @@ import { AnonAvatar, Spinner, UserAvatar } from "@/components/common/bits";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { errorMessage, post } from "@/lib/api";
+import { errorMessage, get, post } from "@/lib/api";
 import type { FeedPage, Post, SharePolicy, Visibility } from "@/lib/types";
 import { SharePolicyPicker } from "./share-policy";
 import { uploadMedia, type UploadedMedia } from "@/lib/upload";
-import { cn } from "@/lib/utils";
+import { cn, toMinor } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-provider";
 import { useSettings } from "@/providers/settings-provider";
 
@@ -31,7 +31,10 @@ interface Pending {
  * The identity/anonymous choice lives inside the modal, under your name (like "Public ▾").
  * The draft survives closing the modal.
  */
-export function PostComposer({ defaultMode = "identity" }: { defaultMode?: Visibility }) {
+/** When posting into a community: its id/name and anonymous policy decide which modes are allowed. */
+export interface ComposerCommunity { id: string; slug: string; name: string; anonPolicy: "off" | "allowed" | "anon_only"; visibility: "public" | "private" | "invite_only" }
+
+export function PostComposer({ defaultMode = "identity", community, onPosted }: { defaultMode?: Visibility; community?: ComposerCommunity; onPosted?: (p: Post) => void }) {
   const { user } = useAuth();
   const { features, limits } = useSettings();
   const qc = useQueryClient();
@@ -42,13 +45,32 @@ export function PostComposer({ defaultMode = "identity" }: { defaultMode?: Visib
   const [mode, setMode] = useState<Visibility>(defaultMode);
   const [sharePolicy, setSharePolicy] = useState<SharePolicy>("everyone");
   const [files, setFiles] = useState<Pending[]>([]);
+  const [access, setAccess] = useState<"public" | "subscribers" | "paid">("public");
+  const [price, setPrice] = useState("5");
+  // Creators can post members-only or paid content (identity posts outside communities only)
+  const { data: creatorMe } = useQuery({
+    queryKey: ["creator-me", user?.id],
+    queryFn: () => get<{ creator: { isActive: boolean; currency: "USD" } | null }>("/creators/me"),
+    enabled: !!user && !community,
+    staleTime: 60_000,
+  });
 
-  const anonReason = !features.anonymousPostingEnabled
-    ? "Anonymous posting is turned off by the admins"
-    : user && !user.canPostAnonymously
-      ? `Unlocks ${new Date(user.anonAvailableAt).toLocaleString()} — accounts must be ${limits.anonAccountAgeHours}h old`
-      : null;
-  const effectiveMode: Visibility = anonReason ? "identity" : mode;
+  const anonReason = community?.anonPolicy === "off"
+    ? "This community doesn't allow anonymous posts"
+    : !features.anonymousPostingEnabled
+      ? "Anonymous posting is turned off by the admins"
+      : user && !user.canPostAnonymously
+        ? `Unlocks ${new Date(user.anonAvailableAt).toLocaleString()} — accounts must be ${limits.anonAccountAgeHours}h old`
+        : null;
+  const identityReason = community?.anonPolicy === "anon_only" ? "This community only allows anonymous posts" : null;
+  // anon-only community but you can't post anonymously yet → you can't post here at all
+  const blockedReason = identityReason && anonReason ? anonReason : null;
+  const effectiveMode: Visibility = identityReason ? "anonymous" : anonReason ? "identity" : mode;
+  const canSell = !!creatorMe?.creator?.isActive && !community && effectiveMode === "identity";
+  const effectiveAccess = canSell ? access : "public";
+  const priceMinor = toMinor(price);
+  // Posts in non-public communities (and paid posts) can't be shared outside, so there's no share setting to pick
+  const showSharePicker = (!community || community.visibility === "public") && effectiveAccess === "public";
   const anon = effectiveMode === "anonymous";
   const effectivePolicy: SharePolicy = anon && sharePolicy === "friends" ? "everyone" : sharePolicy;
 
@@ -59,11 +81,28 @@ export function PostComposer({ defaultMode = "identity" }: { defaultMode?: Visib
 
   const create = useMutation({
     mutationFn: () =>
-      post<{ post: Post }>(anon ? "/posts/anonymous" : "/posts", { content, mediaIds: files.map((f) => f.media!.id), sharePolicy: effectivePolicy }),
+      post<{ post: Post }>(anon ? "/posts/anonymous" : "/posts", {
+        content,
+        mediaIds: files.map((f) => f.media!.id),
+        sharePolicy: effectivePolicy,
+        ...(community ? { communityId: community.id } : {}),
+        ...(effectiveAccess !== "public" ? { access: effectiveAccess, ...(effectiveAccess === "paid" ? { priceMinor } : {}) } : {}),
+      }),
     onSuccess: ({ post: p }) => {
+      if (community) {
+        // Community posts live in the community, never in the main feed
+        onPosted?.(p);
+        qc.invalidateQueries({ queryKey: ["feed", "communities"] });
+        setContent("");
+        files.forEach((f) => URL.revokeObjectURL(f.preview));
+        setFiles([]);
+        setOpen(false);
+        toast.success(p.isPending ? "Sent to the moderators for approval" : p.visibility === "anonymous" ? "Posted anonymously 🎭" : "Posted!");
+        return;
+      }
       // Prepend to matching feeds (the socket echo is de-duplicated by id)
       for (const key of [["feed", "all"], ["feed", p.visibility]]) {
-        qc.setQueryData<InfiniteData<FeedPage>>(key, (d) =>
+        qc.setQueriesData<InfiniteData<FeedPage>>({ queryKey: key }, (d) =>
           d ? { ...d, pages: [{ ...d.pages[0], posts: [p, ...d.pages[0].posts.filter((x) => x.id !== p.id)] }, ...d.pages.slice(1)] } : d,
         );
       }
@@ -74,8 +113,9 @@ export function PostComposer({ defaultMode = "identity" }: { defaultMode?: Visib
       setContent("");
       files.forEach((f) => URL.revokeObjectURL(f.preview));
       setFiles([]);
+      setAccess("public");
       setOpen(false);
-      toast.success(p.visibility === "anonymous" ? "Posted anonymously 🎭" : "Posted!");
+      toast.success(p.visibility === "anonymous" ? "Posted anonymously 🎭" : p.access === "paid" ? "Paid post published" : p.access === "subscribers" ? "Members-only post published" : "Posted!");
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -113,7 +153,8 @@ export function PostComposer({ defaultMode = "identity" }: { defaultMode?: Visib
 
   const uploading = files.some((f) => !f.media);
   const over = content.length > limits.maxPostLength;
-  const canSubmit = !!(content.trim() || files.length) && !uploading && !over && !create.isPending;
+  const canSubmit = !!(content.trim() || files.length) && !uploading && !over && !create.isPending && !blockedReason
+    && (effectiveAccess !== "paid" || (Number.isFinite(priceMinor) && priceMinor >= 100));
   const first = user.displayName.split(" ")[0];
   const hasDraft = content.trim().length > 0 || files.length > 0;
   const pickMedia = () => fileRef.current?.click();
@@ -130,7 +171,7 @@ export function PostComposer({ defaultMode = "identity" }: { defaultMode?: Visib
           onClick={() => setOpen(true)}
           className="h-10 min-w-0 flex-1 truncate rounded-full bg-muted px-4 text-left text-[15px] text-muted-foreground transition-colors hover:bg-accent"
         >
-          {hasDraft ? <span className="text-foreground">{content.trim() || `${files.length} attachment${files.length > 1 ? "s" : ""}`}</span> : `What's on your mind, ${first}?`}
+          {blockedReason ? blockedReason : hasDraft ? <span className="text-foreground">{content.trim() || `${files.length} attachment${files.length > 1 ? "s" : ""}`}</span> : community ? `Write something in ${community.name}…` : `What's on your mind, ${first}?`}
         </button>
         {features.mediaUploadsEnabled && (
           <button type="button" onClick={pickMedia} className="grid size-10 shrink-0 place-items-center rounded-full text-anon hover:bg-accent" aria-label="Add photo or video">
@@ -181,11 +222,11 @@ export function PostComposer({ defaultMode = "identity" }: { defaultMode?: Visib
                     <ChevronDown className="size-3.5" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-72">
-                    <DropdownMenuItem onClick={() => setMode("identity")} className="items-start gap-3 py-2">
+                    <DropdownMenuItem disabled={!!identityReason} onClick={() => setMode("identity")} className="items-start gap-3 py-2">
                       <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-identity/15 text-identity"><UserRound className="size-4" /></span>
                       <span className="flex-1">
                         <span className="block font-medium">Identity</span>
-                        <span className="block text-xs text-muted-foreground">Posted as you · shows on your profile</span>
+                        <span className="block text-xs text-muted-foreground">{identityReason ?? (community ? `Posted as you in ${community.name}` : "Posted as you · shows on your profile")}</span>
                       </span>
                       {!anon && <Check className="mt-1 size-4 text-primary" />}
                     </DropdownMenuItem>
@@ -199,7 +240,28 @@ export function PostComposer({ defaultMode = "identity" }: { defaultMode?: Visib
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <span className="ml-1.5"><SharePolicyPicker value={effectivePolicy} onChange={setSharePolicy} mode={effectiveMode} /></span>
+                {showSharePicker && <span className="ml-1.5"><SharePolicyPicker value={effectivePolicy} onChange={setSharePolicy} mode={effectiveMode} /></span>}
+                {community && <p className="mt-1 truncate text-xs text-muted-foreground">Posting in <b className="font-semibold text-foreground">{community.name}</b></p>}
+                {canSell && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                    {(["public", "subscribers", "paid"] as const).map((a) => (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => setAccess(a)}
+                        className={cn("rounded-md px-2 py-0.5 font-semibold", access === a ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent")}
+                      >
+                        {a === "public" ? "Everyone" : a === "subscribers" ? "Members only" : "Paid"}
+                      </button>
+                    ))}
+                    {access === "paid" && (
+                      <span className="flex items-center gap-1">
+                        $
+                        <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" aria-label="Price" className="h-6 w-16 rounded-md border bg-transparent px-1.5" />
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
