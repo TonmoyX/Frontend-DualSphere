@@ -35,6 +35,12 @@ export interface Post {
   sharePolicy?: SharePolicy;
   sharesCount?: number;
   isShare?: boolean;
+  /** Set when the author edited the text after posting. */
+  editedAt?: string | null;
+  /** Real views: distinct signed-in people (not the author) who saw it. */
+  viewsCount?: number;
+  /** Friends tagged in the post (identity posts only). */
+  tags?: PostTag[];
   /** The original post when this is a share (null = original deleted or unavailable). */
   sharedPost?: Post | null;
   savedByMe?: boolean;
@@ -52,6 +58,8 @@ export interface Post {
 }
 
 export type SharePolicy = "everyone" | "friends" | "none";
+
+export interface PostTag { id: string; username: string; displayName: string }
 
 export interface FeedPage {
   posts: Post[];
@@ -170,7 +178,7 @@ export interface Comment {
 
 export interface Notification {
   id: string;
-  type: "like" | "comment" | "reply" | "security" | "system" | "moderation" | "friend_request" | "friend_accept" | "share";
+  type: "like" | "comment" | "reply" | "security" | "system" | "moderation" | "friend_request" | "friend_accept" | "share" | "tag";
   message: string | null;
   postId: string | null;
   commentId: string | null;

@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Bell, CheckCheck, Gavel, Heart, MessageCircle, MessageSquareReply, Send, ShieldAlert, UserCheck, UserPlus, VenetianMask } from "lucide-react";
+import { Bell, CheckCheck, Gavel, Heart, MessageCircle, MessageSquareReply, Send, Tag, ShieldAlert, UserCheck, UserPlus, VenetianMask } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -23,6 +23,7 @@ const ICON = {
   friend_request: { Icon: UserPlus, cls: "text-primary bg-primary/10", text: "sent you a friend request" },
   share: { Icon: Send, cls: "text-emerald-500 bg-emerald-500/10", text: "shared your post" },
   friend_accept: { Icon: UserCheck, cls: "text-anon bg-anon/10", text: "accepted your friend request" },
+  tag: { Icon: Tag, cls: "text-sky-500 bg-sky-500/10", text: "tagged you in a post" },
 };
 
 /** Activity on YOUR anonymous posts reads as "…your anonymous post" (visible only to you). */

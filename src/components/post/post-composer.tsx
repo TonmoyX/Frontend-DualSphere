@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, ImagePlus, Lock, UserRound, VenetianMask, X } from "lucide-react";
+import { Check, ChevronDown, ImagePlus, Lock, UserRound, UserRoundPlus, VenetianMask, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { errorMessage, get, post } from "@/lib/api";
-import type { FeedPage, Post, SharePolicy, Visibility } from "@/lib/types";
+import type { FeedPage, Post, PostTag, SharePolicy, Visibility } from "@/lib/types";
+import { TaggedLine, TagPicker } from "./tag-picker";
 import { SharePolicyPicker } from "./share-policy";
 import { uploadMedia, type UploadedMedia } from "@/lib/upload";
 import { cn, toMinor } from "@/lib/utils";
@@ -47,6 +48,8 @@ export function PostComposer({ defaultMode = "identity", community, onPosted }: 
   const [files, setFiles] = useState<Pending[]>([]);
   const [access, setAccess] = useState<"public" | "subscribers" | "paid">("public");
   const [price, setPrice] = useState("5");
+  const [tags, setTags] = useState<PostTag[]>([]);
+  const [tagging, setTagging] = useState(false);
   // Creators can post members-only or paid content (identity posts outside communities only)
   const { data: creatorMe } = useQuery({
     queryKey: ["creator-me", user?.id],
@@ -73,6 +76,9 @@ export function PostComposer({ defaultMode = "identity", community, onPosted }: 
   const showSharePicker = (!community || community.visibility === "public") && effectiveAccess === "public";
   const anon = effectiveMode === "anonymous";
   const effectivePolicy: SharePolicy = anon && sharePolicy === "friends" ? "everyone" : sharePolicy;
+  // Tagging: identity posts outside communities only (an anonymous tag would point at you)
+  const canTag = !anon && !community;
+  const effectiveTags = canTag ? tags : [];
 
   // Focus the text box when the modal opens
   useEffect(() => {
@@ -85,6 +91,7 @@ export function PostComposer({ defaultMode = "identity", community, onPosted }: 
         content,
         mediaIds: files.map((f) => f.media!.id),
         sharePolicy: effectivePolicy,
+        ...(effectiveTags.length ? { tagIds: effectiveTags.map((t) => t.id) } : {}),
         ...(community ? { communityId: community.id } : {}),
         ...(effectiveAccess !== "public" ? { access: effectiveAccess, ...(effectiveAccess === "paid" ? { priceMinor } : {}) } : {}),
       }),
@@ -109,11 +116,13 @@ export function PostComposer({ defaultMode = "identity", community, onPosted }: 
       if (p.visibility === "identity") {
         qc.invalidateQueries({ queryKey: ["profile-posts", user?.username] });
         qc.invalidateQueries({ queryKey: ["photos"] });
-      }
+      } else qc.invalidateQueries({ queryKey: ["my-anonymous"] }); // profile → Anonymous tab
       setContent("");
       files.forEach((f) => URL.revokeObjectURL(f.preview));
       setFiles([]);
       setAccess("public");
+      setTags([]);
+      setTagging(false);
       setOpen(false);
       toast.success(p.visibility === "anonymous" ? "Posted anonymously 🎭" : p.access === "paid" ? "Paid post published" : p.access === "subscribers" ? "Members-only post published" : "Posted!");
     },
@@ -209,7 +218,10 @@ export function PostComposer({ defaultMode = "identity", community, onPosted }: 
                 </motion.div>
               </AnimatePresence>
               <div className="min-w-0">
-                <p className={cn("truncate font-semibold", anon && "text-anon")}>{anon ? "Anonymous" : user.displayName}</p>
+                <p className={cn("line-clamp-2 font-semibold", anon && "text-anon")}>
+                  {anon ? "Anonymous" : user.displayName}
+                  {effectiveTags.length > 0 && <> <TaggedLine tags={effectiveTags} linked={false} className="font-normal" /></>}
+                </p>
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     className={cn(
@@ -269,7 +281,7 @@ export function PostComposer({ defaultMode = "identity", community, onPosted }: 
               ref={textRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder={anon ? "Say what you really think. No one will know it's you." : `What's on your mind, ${first}?`}
+              placeholder={anon ? "Say what you really think. Other users won't know it's you." : `What's on your mind, ${first}?`}
               rows={files.length ? 3 : 5}
               className={cn(
                 "mt-3 w-full resize-none bg-transparent leading-snug outline-none placeholder:text-muted-foreground",
@@ -309,6 +321,15 @@ export function PostComposer({ defaultMode = "identity", community, onPosted }: 
               </div>
             )}
 
+            {canTag && tagging && (
+              <div className="mb-3">
+                <TagPicker value={tags} onChange={setTags} onDone={() => setTagging(false)} />
+              </div>
+            )}
+            {anon && tags.length > 0 && (
+              <p className="mb-3 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">Tags are removed from anonymous posts so no one can work out who wrote it.</p>
+            )}
+
             <AnimatePresence>
               {anon && (
                 <motion.p
@@ -317,7 +338,7 @@ export function PostComposer({ defaultMode = "identity", community, onPosted }: 
                   exit={{ height: 0, opacity: 0 }}
                   className="mb-3 flex items-start gap-1.5 overflow-hidden rounded-lg bg-anon/10 px-3 py-2 text-xs text-anon"
                 >
-                  <Lock className="mt-0.5 size-3.5 shrink-0" /> Won&apos;t appear on your profile. Your identity is encrypted and only accessible through an audited admin process.
+                  <Lock className="mt-0.5 size-3.5 shrink-0" /> Won&apos;t appear on your profile, and other users and moderators can&apos;t see it&apos;s you. Administrators can during a logged investigation. <a href="/privacy#admin-access" target="_blank" className="underline underline-offset-2">Learn more</a>
                 </motion.p>
               )}
             </AnimatePresence>
@@ -328,6 +349,18 @@ export function PostComposer({ defaultMode = "identity", community, onPosted }: 
               <span className="text-sm font-semibold">Add to your post</span>
               <div className="flex items-center gap-1">
                 <span className={cn("mr-2 text-xs tabular-nums", over ? "text-destructive" : "text-muted-foreground")}>{content.length}/{limits.maxPostLength}</span>
+                {canTag && (
+                  <button
+                    type="button"
+                    onClick={() => setTagging((t) => !t)}
+                    className={cn("grid size-9 place-items-center rounded-full text-sky-500 hover:bg-accent", (tagging || tags.length > 0) && "bg-sky-500/10")}
+                    aria-label="Tag people"
+                    aria-pressed={tagging}
+                    title="Tag people"
+                  >
+                    <UserRoundPlus className="size-6" />
+                  </button>
+                )}
                 {features.mediaUploadsEnabled && (
                   <button
                     type="button"

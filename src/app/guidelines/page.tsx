@@ -37,7 +37,7 @@ export default function GuidelinesPage() {
         <ol>
           <li>Anonymous posts are stored with <code>author: null</code> — no name is attached to the post.</li>
           <li>Your link to the post is AES-256 encrypted in a separate, restricted store.</li>
-          <li>Unmasking needs an admin, a written reason and two-factor authentication, and it&apos;s permanently audit-logged.</li>
+          <li>Other users and moderators can&apos;t unmask you. Administrators can during an investigation (written reason + two-factor authentication), and it&apos;s permanently audit-logged — see the <a href="/privacy#admin-access">Privacy Policy</a>.</li>
           <li>Photo metadata (GPS location, device) is stripped in your browser before upload.</li>
           <li>Only you can see your own anonymous posts on your profile, and notifications about them are visible only to you.</li>
         </ol>

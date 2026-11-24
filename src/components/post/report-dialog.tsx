@@ -51,7 +51,7 @@ export function ReportDialog({
           <DialogTitle>Report {target.type === "user" ? "profile" : target.type}</DialogTitle>
           <DialogDescription>
             {target.type === "message"
-              ? "Only this message is shared with moderators, never the rest of your conversation. The sender won't know you reported it."
+              ? "Moderators see only this message. The sender won't know you reported it."
               : "Moderators review every report. Reporting is confidential."}
           </DialogDescription>
         </DialogHeader>

@@ -29,7 +29,7 @@ export default function TermsPage() {
       </section>
       <section>
         <h2>Enforcement</h2>
-        <p>Moderators review reports and may remove content or suspend accounts. In serious cases — such as credible threats or illegal content — administrators can identify the author of an anonymous post through an audited process described in our Privacy Policy.</p>
+        <p>Moderators review reports and may remove content or suspend accounts. In serious cases — such as credible threats or illegal content — administrators can identify the author of anonymous posts and review an account&apos;s messages through an audited process described in our Privacy Policy.</p>
       </section>
       <section>
         <h2>Your content</h2>

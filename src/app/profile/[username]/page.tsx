@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Ban, Briefcase, Camera, Heart, Sparkles, GraduationCap, MapPin, Clapperboard, Flag, VenetianMask, Link2, Lock, LockOpen, MoreHorizontal, Plus, Send, Settings, ShieldCheck, Trash2, Upload, Users, ImageIcon } from "lucide-react";
+import { Ban, Briefcase, Camera, GraduationCap, MapPin, Clapperboard, Flag, VenetianMask, Link2, Lock, LockOpen, MoreHorizontal, Plus, Send, Settings, ShieldCheck, Trash2, Upload, Users, ImageIcon } from "lucide-react";
 import { ReportDialog } from "@/components/post/report-dialog";
 import { CreateStoryDialog } from "@/components/stories/create-story-dialog";
 import Link from "next/link";
@@ -11,6 +11,7 @@ import { Suspense, useState } from "react";
 import { toast } from "sonner";
 import { compact, EmptyState, RoleBadge, UserAvatar, VerifiedMark } from "@/components/common/bits";
 import { PostList } from "@/components/post/feed";
+import { PostComposer } from "@/components/post/post-composer";
 import { AvatarUploadDialog, CoverUploadDialog } from "@/components/profile/avatar-upload-dialog";
 import { FriendButton } from "@/components/friends/friend-button";
 import { FriendsTab, MutualFriendsLine, PhotosTab } from "@/components/profile/profile-tabs";
@@ -320,12 +321,6 @@ function ProfileInner() {
                     {!user.blockedByMe && user.follow && (
                       <FollowButton username={user.username} name={user.displayName} isFollowing={user.follow.isFollowing} isFriend={user.friends.status === "friends"} />
                     )}
-                    {!user.blockedByMe && creator?.isCreator && creator.tiers.length > 0 && (
-                      <Button size="sm" onClick={() => setJoinOpen(true)}><Sparkles /> {creator.membership ? "Member" : "Join"}</Button>
-                    )}
-                    {!user.blockedByMe && creator?.isCreator && creator.tipsEnabled && (
-                      <Button size="sm" variant="secondary" onClick={() => setTipOpen(true)}><Heart className="text-pink-500" /> Tip</Button>
-                    )}
                     {features.messagingEnabled && !user.blockedByMe && (
                       <Button size="sm" variant={user.friends.status === "none" || user.friends.status === "outgoing" ? "secondary" : "default"} onClick={() => message.mutate()} disabled={message.isPending}>
                         <Send /> <span className="hidden sm:inline">Message</span>
@@ -395,6 +390,8 @@ function ProfileInner() {
               <ProfileSidebar p={user} isMe={isMe} onTab={setTab} />
             </aside>
             <div className="min-w-0">
+            {/* Own profile: same "What's on your mind?" box as the feed */}
+            {isMe && <div className="mb-4"><PostComposer /></div>}
             <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
               <Lock className="size-3.5 text-anon" />
               Profiles only show identity posts. Anonymous posts are never linked here.

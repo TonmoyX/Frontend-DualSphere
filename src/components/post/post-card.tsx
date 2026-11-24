@@ -2,13 +2,13 @@
 
 import { useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bookmark, BookmarkCheck, Check, Clock, EyeOff, Flag, Heart, Link2, MessageCircle, MoreHorizontal, Pin, PinOff, Lock, Repeat2, ShieldX, Sparkles, TimerOff, Trash2, VenetianMask } from "lucide-react";
+import { Bookmark, BookmarkCheck, Check, Clock, EyeOff, Flag, Heart, Link2, MessageCircle, Eye, MoreHorizontal, Pencil, Pin, UserRoundX, PinOff, Lock, Repeat2, ShieldX, Sparkles, TimerOff, Trash2, VenetianMask } from "lucide-react";
 import { GroupsIcon } from "@/components/common/groups-icon";
 import { LockedPostPanel } from "@/components/money/pay";
 import { CommunityRemoveDialog, useCommunityPage } from "@/components/community/community-context";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AnonAvatar, compact, RoleBadge, TimeAgo, UserAvatar, VerifiedMark } from "@/components/common/bits";
 import {
@@ -34,8 +34,11 @@ import {
 import { del, errorMessage, patch, post as apiPost } from "@/lib/api";
 import type { FeedPage, Post, SharePolicy } from "@/lib/types";
 import { cn, formatMoney } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/providers/auth-provider";
 import { FOCUS_COMPOSER_EVENT } from "./comment-thread";
+import { EditPostDialog } from "./edit-post-dialog";
+import { TaggedLine } from "./tag-picker";
 import { MediaGrid } from "./media-grid";
 import { PostModal } from "./post-modal";
 import { ReportDialog } from "./report-dialog";
@@ -59,6 +62,7 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
   const [reportOpen, setReportOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [modRemoveOpen, setModRemoveOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const anon = post.visibility === "anonymous";
   // On a community page, its mods get pin/remove (the API re-checks the role)
   const page = useCommunityPage();
@@ -118,6 +122,25 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
+
+  // You were tagged → you can take your name off the post
+  const taggedMe = !!user && !!post.tags?.some((t) => t.id === user.id);
+  const untag = useMutation({
+    mutationFn: () => del(`/posts/${post.id}/tags/me`),
+    onSuccess: () => {
+      patchEverywhere((p) => ({ ...p, tags: (p.tags ?? []).filter((t) => t.id !== user?.id) }));
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+      toast.success("Tag removed");
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+
+  // Opening a post (its page or the post modal) is a real view; the feed counts views as posts scroll by.
+  // The server counts each person once and never the author.
+  useEffect(() => {
+    if (v !== "feed" && user && !post.isOwner) void apiPost("/feed/seen", { postIds: [post.id] }).catch(() => {});
+  }, [v, user, post.id, post.isOwner]);
+  const views = post.viewsCount ?? 0;
 
   const requireUser = (fn: () => void) => () => (user ? fn() : router.push("/login"));
 
@@ -193,6 +216,8 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
                   <span className="text-sm text-muted-foreground">updated their cover photo</span>
                 ) : post.isShare ? (
                   <span className="text-sm text-muted-foreground">shared a post</span>
+                ) : post.tags?.length ? (
+                  <TaggedLine tags={post.tags} />
                 ) : (
                   <span className="truncate text-sm text-muted-foreground">@{post.author.username}</span>
                 )}
@@ -202,6 +227,11 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
             <Link href={`/post/${post.id}`} className="hover:underline">
               <TimeAgo date={post.createdAt} />
             </Link>
+            {post.editedAt && (
+              <span className="text-xs text-muted-foreground" title={`Edited ${new Date(post.editedAt).toLocaleString()}`}>
+                · Edited
+              </span>
+            )}
             {post.isOwner && anon && <span className="text-[11px] text-muted-foreground">(only you can see this is yours)</span>}
           </div>
           {(post.community && !onOwnCommunityPage) || post.isPinned || post.isPending || (post.access && post.access !== "public") ? (
@@ -235,6 +265,15 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
             <DropdownMenuItem onClick={requireUser(() => save.mutate(!post.savedByMe))}>
               {post.savedByMe ? <><BookmarkCheck className="text-primary" /> Unsave post</> : <><Bookmark /> Save post</>}
             </DropdownMenuItem>
+            {post.isOwner && !post.isRemoved && (
+              <DropdownMenuItem onClick={() => setEditOpen(true)} className="items-start gap-2.5 py-2">
+                <Pencil className="mt-0.5" />
+                <span>
+                  <span className="block font-medium">{anon ? "Edit anonymous post" : "Edit post"}</span>
+                  {anon && <span className="block text-xs text-muted-foreground">Stays anonymous after editing</span>}
+                </span>
+              </DropdownMenuItem>
+            )}
             {post.isOwner && !post.isShare && (
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger className="gap-2">
@@ -270,6 +309,12 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
                   </DropdownMenuItem>
                 )}
               </>
+            )}
+            {taggedMe && (
+              <DropdownMenuItem onClick={() => untag.mutate()} className="items-start gap-2.5 py-2">
+                <UserRoundX className="mt-0.5" />
+                <span><span className="block font-medium">Remove tag</span><span className="block text-xs text-muted-foreground">Take your name off this post</span></span>
+              </DropdownMenuItem>
             )}
             {!post.isOwner && (
               <DropdownMenuItem onClick={requireUser(() => setReportOpen(true))}>
@@ -360,11 +405,34 @@ export function PostCard({ post, linkToDetail, variant }: { post: Post; linkToDe
             {post.commentsCount > 0 && <span className="tabular-nums">{compact(post.commentsCount)}</span>}
           </button>
           <ShareButton post={post} />
+          {views > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-auto flex cursor-default items-center gap-1.5 rounded-full px-2.5 py-1 tabular-nums" aria-label={`${views.toLocaleString()} ${views === 1 ? "view" : "views"}`}>
+                  <Eye className="size-4" />
+                  {compact(views)}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{views.toLocaleString()} {views === 1 ? "view" : "views"}</TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
 
       {v === "feed" && modalOpen && <PostModal post={post} open={modalOpen} onOpenChange={setModalOpen} />}
       {canCommunityModerate && <CommunityRemoveDialog slug={post.community!.slug} postId={post.id} open={modRemoveOpen} onOpenChange={setModRemoveOpen} />}
+      {post.isOwner && (
+        <EditPostDialog
+          post={post}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          onSaved={(p) => {
+            patchEverywhere((old) => ({ ...old, content: p.content, media: p.media, editedAt: p.editedAt, tags: p.tags }));
+            if (post.community) qc.invalidateQueries({ queryKey: ["community-posts", post.community.slug] });
+            qc.invalidateQueries({ queryKey: ["photos"] }); // profile Photos tab
+          }}
+        />
+      )}
       <ReportDialog open={reportOpen} onOpenChange={setReportOpen} target={{ type: "post", id: post.id }} />
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

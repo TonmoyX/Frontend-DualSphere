@@ -31,8 +31,8 @@ export function RealtimeBridge() {
       qc.setQueryData<Post>(["post", id], (p) => (p ? (fn(p) ?? { ...p, isRemoved: true }) : p));
     };
 
-    // Partial updates: likes/comments counts, shares count or share policy
-    const onUpdate = ({ id, ...u }: { id: string } & Partial<Pick<Post, "likesCount" | "commentsCount" | "sharesCount" | "sharePolicy">>) =>
+    // Partial updates: likes/comments/views counts, shares count, share policy, or edited text/media
+    const onUpdate = ({ id, ...u }: { id: string } & Partial<Pick<Post, "likesCount" | "commentsCount" | "sharesCount" | "sharePolicy" | "content" | "editedAt" | "media" | "viewsCount">>) =>
       patchPost(id, (p) => ({ ...p, ...Object.fromEntries(Object.entries(u).filter(([, v]) => v !== undefined)) }));
     const onRemoved = (u: { id: string }) => patchPost(u.id, () => null);
     const onNotification = () => qc.invalidateQueries({ queryKey: ["notifications"] });

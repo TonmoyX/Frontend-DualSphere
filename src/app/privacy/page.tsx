@@ -17,14 +17,29 @@ export default function PrivacyPage() {
           <li>The only link between you and an anonymous post is encrypted (AES-256-GCM) and kept in a separate, restricted store.</li>
           <li>Anonymous posts never appear on your profile, in your photos, in notifications, or in any public API response.</li>
           <li>Photo location and device data (EXIF) is removed in your browser before upload.</li>
-          <li>Revealing who wrote an anonymous post requires an administrator, a written reason and two-factor authentication. Every such lookup is permanently recorded in a tamper-evident audit log.</li>
+          <li>Anonymous means <b>other users and moderators</b> can&apos;t see it&apos;s you. Administrators can: see <a href="#admin-access">Administrator access</a> below.</li>
+        </ul>
+      </section>
+      <section id="admin-access">
+        <h2>Administrator access</h2>
+        <p>To keep people safe and meet legal obligations, DualSphere administrators can investigate an account. During an investigation an administrator can:</p>
+        <ul>
+          <li>See who wrote any anonymous post, including <b>every anonymous post written by the account under investigation</b>.</li>
+          <li>Read that account&apos;s <b>direct messages and group chats</b>, including messages deleted or edited in the last 90 days.</li>
+        </ul>
+        <p>Safeguards:</p>
+        <ul>
+          <li>Only administrators (not moderators) can do this, and only after two-factor authentication and a written reason.</li>
+          <li>Each investigation covers <b>one account</b> and ends automatically after 30 minutes.</li>
+          <li>Every investigation and every conversation or post viewed in it is permanently recorded in a tamper-evident audit log that other administrators can review.</li>
+          <li>Moderators handling a report only see the reported item itself.</li>
         </ul>
       </section>
       <section>
         <h2>What we store</h2>
         <ul>
           <li><b>Account:</b> name, username, email, password (hashed with bcrypt), date of birth and gender (both private).</li>
-          <li><b>Content you create:</b> posts, comments, messages, stories, photos, videos and voice messages.</li>
+          <li><b>Content you create:</b> posts, comments, messages, stories, photos, videos and voice messages. Messages are stored on our servers (they are not end-to-end encrypted).</li>
           <li><b>Security:</b> active sessions and a hashed fingerprint of devices you sign in from, used to alert you about new sign-ins. IP addresses are stored only as one-way hashes.</li>
         </ul>
       </section>
@@ -34,7 +49,8 @@ export default function PrivacyPage() {
           <li>Lock your profile so only friends can see your posts, photos and friends list.</li>
           <li>Choose who can see your friends list, and turn off your activity status.</li>
           <li>Block people, and review or sign out of active sessions.</li>
-          <li>Deleting a post, comment or message removes it permanently from our database.</li>
+          <li>Deleting a post or comment removes it permanently from our database.</li>
+          <li>Unsending or deleting a message removes it for everyone straight away. A copy (and earlier versions of edited messages) is kept for <b>90 days</b> for safety investigations only, then permanently deleted.</li>
           <li>Stories disappear automatically after 24 hours.</li>
         </ul>
       </section>

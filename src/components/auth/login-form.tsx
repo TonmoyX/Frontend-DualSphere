@@ -11,11 +11,11 @@ import type { SelfUser } from "@/lib/types";
 import { useAuth } from "@/providers/auth-provider";
 import { FloatingInput } from "./floating-field";
 
-type LoginRes = { mfaRequired: true; challenge: string } | { mfaRequired: false; user: SelfUser };
+type LoginRes = { mfaRequired: true; challenge: string } | { mfaRequired: false; user: SelfUser } | { mfaRequired: false; user: null; suspended: true };
 
 /** Email/username + password login with a TOTP step when 2FA is on. */
 export function LoginForm({ onSuccess }: { onSuccess?: (u: SelfUser) => void }) {
-  const { setUser } = useAuth();
+  const { setUser, setSuspended } = useAuth();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [challenge, setChallenge] = useState<string | null>(null);
@@ -23,7 +23,9 @@ export function LoginForm({ onSuccess }: { onSuccess?: (u: SelfUser) => void }) 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const done = (u: SelfUser) => {
+  const done = (u: SelfUser | null) => {
+    // Suspended account: signed in, but only to the suspension screen
+    if (!u) return setSuspended(true);
     setUser(u);
     onSuccess?.(u);
   };
@@ -34,7 +36,7 @@ export function LoginForm({ onSuccess }: { onSuccess?: (u: SelfUser) => void }) 
     setBusy(true);
     try {
       if (challenge) {
-        const r = await post<{ user: SelfUser }>("/auth/login/mfa", { challenge, code });
+        const r = await post<{ user: SelfUser | null }>("/auth/login/mfa", { challenge, code });
         done(r.user);
       } else {
         const r = await post<LoginRes>("/auth/login", { identifier, password });

@@ -1,9 +1,9 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useEffect, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { ApiError, get, post, refreshNow } from "@/lib/api";
+import { ApiError, get, post, refreshNow, SUSPENDED_EVENT } from "@/lib/api";
 import { getSocket, reconnectSocket } from "@/lib/socket";
 import type { SelfUser } from "@/lib/types";
 
@@ -13,12 +13,16 @@ interface AuthCtx {
   setUser: (u: SelfUser | null) => void;
   refetch: () => Promise<unknown>;
   logout: () => Promise<void>;
+  /** Signed in to a suspended account: every page shows the suspension screen instead. */
+  suspended: boolean;
+  setSuspended: (s: boolean) => void;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
+  const [suspended, setSuspended] = useState(false);
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["me"],
     queryFn: async () => {
@@ -26,9 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return (await get<{ user: SelfUser }>("/auth/me")).user;
       } catch (err) {
         if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-          if (err.code === "BANNED") {
-            toast.error("Your account is suspended", { description: (err.details as { reason?: string })?.reason ?? undefined });
-          }
+          if (err.code === "BANNED") setSuspended(true);
           return null;
         }
         throw err;
@@ -49,8 +51,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await post("/auth/logout").catch(() => {});
+    setSuspended(false);
     setUser(null);
   }, [setUser]);
+
+  // Any API call answering BANNED (e.g. suspended while browsing) → suspension screen
+  useEffect(() => {
+    const on = () => { setSuspended(true); qc.setQueryData(["me"], null); };
+    window.addEventListener(SUSPENDED_EVENT, on);
+    return () => window.removeEventListener(SUSPENDED_EVENT, on);
+  }, [qc]);
 
   // Refresh the session every 10 min (access tokens live 15 min) so nothing silently degrades
   const loggedIn = !!data;
@@ -64,14 +74,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const s = getSocket();
     const onRevoked = (p: { reason?: string }) => {
+      if (p?.reason === "banned") {
+        // The session stays, limited to the suspension screen
+        setSuspended(true);
+        qc.setQueryData(["me"], null);
+        return;
+      }
       setUser(null);
-      toast.warning(p?.reason === "banned" ? "Your account has been suspended." : "You've been signed out.");
+      toast.warning("You've been signed out.");
     };
     s.on("session:revoked", onRevoked);
     return () => void s.off("session:revoked", onRevoked);
-  }, [setUser]);
+  }, [setUser, qc]);
 
-  return <Ctx.Provider value={{ user: data ?? null, loading: isLoading, setUser, refetch, logout }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user: data ?? null, loading: isLoading, setUser, refetch, logout, suspended, setSuspended }}>{children}</Ctx.Provider>;
 }
 
 export function useAuth() {

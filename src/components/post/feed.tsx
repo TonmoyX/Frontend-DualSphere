@@ -85,7 +85,7 @@ function useSeenTracker(enabled: boolean) {
 }
 
 /** Cursor-paginated infinite list. `queryKey` scopes the cache; `path` must accept ?cursor. */
-export function PostList({ queryKey, path, live = false, mode = "all", empty, accept, sponsored = false, trackSeen = false, adPlacement = "feed" }: {
+export function PostList({ queryKey, path, live = false, mode = "all", empty, accept, sponsored = false, trackSeen = true, adPlacement = "feed" }: {
   queryKey: unknown[];
   path: string;
   live?: boolean;

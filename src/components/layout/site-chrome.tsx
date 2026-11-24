@@ -11,6 +11,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { useSettings } from "@/providers/settings-provider";
 import { ElasticPull } from "./elastic-pull";
 import { Navbar } from "./navbar";
+import { SuspendedScreen } from "./suspended-screen";
 
 const variantStyle = {
   info: "bg-identity/15 text-identity border-identity/25",
@@ -73,10 +74,15 @@ function Maintenance({ message }: { message: string }) {
 
 export function SiteChrome({ children }: { children: ReactNode }) {
   const settings = useSettings();
-  const { user } = useAuth();
+  const { user, suspended } = useAuth();
   const pathname = usePathname();
   const isStaff = user && user.role !== "user";
   const isAuthPage = ["/login", "/reset-password", "/forgot-password"].some((p) => pathname.startsWith(p));
+
+  // Suspended account: one dedicated screen, whatever the URL (the rules pages stay readable)
+  if (suspended && !["/terms", "/guidelines", "/privacy", "/help"].some((p) => pathname.startsWith(p))) {
+    return <SuspendedScreen />;
+  }
 
   if (settings.features.maintenanceMode && !isStaff && !isAuthPage) {
     return <Maintenance message={settings.features.maintenanceMessage} />;

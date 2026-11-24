@@ -14,6 +14,8 @@ export class ApiError extends Error {
   }
 }
 
+export const SUSPENDED_EVENT = "ds:suspended";
+
 let refreshing: Promise<boolean> | null = null;
 
 async function refreshSession(): Promise<boolean> {
@@ -46,6 +48,10 @@ export async function api<T = unknown>(path: string, opts: Opts = {}): Promise<T
 
   if (!res.ok) {
     const data = await res.json().catch(() => null);
+    // Account suspended (possibly while browsing): the app swaps every page for the suspension screen
+    if (res.status === 403 && data?.error?.code === "BANNED" && typeof window !== "undefined") {
+      window.dispatchEvent(new Event(SUSPENDED_EVENT));
+    }
     throw new ApiError(
       res.status,
       data?.error?.code ?? "HTTP_ERROR",
