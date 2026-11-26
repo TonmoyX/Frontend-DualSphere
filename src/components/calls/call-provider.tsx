@@ -23,7 +23,7 @@ const CallCtx = createContext<Ctx>({ startCall: () => {}, busy: false });
 export const useCall = () => useContext(CallCtx);
 
 // ── tones (generated, no audio files) ─────────────────────────────
-function tone(pattern: "ring" | "ringback") {
+export function tone(pattern: "ring" | "ringback") {
   const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   if (!Ctx) return () => {};
   const ctx = new Ctx();

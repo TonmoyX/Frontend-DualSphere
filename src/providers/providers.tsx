@@ -9,6 +9,7 @@ import { AuthProvider } from "./auth-provider";
 import { SettingsProvider } from "./settings-provider";
 import { RealtimeBridge } from "./realtime-bridge";
 import { CallProvider } from "@/components/calls/call-provider";
+import { GroupCallProvider } from "@/components/calls/group-call";
 import type { PublicSettings } from "@/lib/types";
 
 export function Providers({ children, initialSettings }: { children: ReactNode; initialSettings: PublicSettings | null }) {
@@ -30,7 +31,7 @@ export function Providers({ children, initialSettings }: { children: ReactNode; 
         <AuthProvider>
           <TooltipProvider delayDuration={200}>
             <RealtimeBridge />
-            <CallProvider>{children}</CallProvider>
+            <CallProvider><GroupCallProvider>{children}</GroupCallProvider></CallProvider>
             <ThemedToaster position="bottom-right" richColors closeButton />
           </TooltipProvider>
         </AuthProvider>

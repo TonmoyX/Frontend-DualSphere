@@ -5,6 +5,7 @@ import { format, isToday, isYesterday } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDown, BellOff, BellRing, ChevronDown, ChevronLeft, ChevronUp, Info, MoreVertical, Phone, Pin, PinOff, Search, Trash2, User, Video, X } from "lucide-react";
 import { useCall } from "@/components/calls/call-provider";
+import { useGroupCall } from "@/components/calls/group-call";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -36,14 +37,18 @@ function dayLabel(iso: string) {
 }
 const sameDay = (a: string, b: string) => new Date(a).toDateString() === new Date(b).toDateString();
 
-type SendPayload = { content?: string; mediaIds?: string[]; heart?: boolean; media?: UploadedMedia[]; replyTo?: ChatMessage | null; voiceDuration?: number };
+type SendPayload = { content?: string; mediaIds?: string[]; heart?: boolean; media?: UploadedMedia[]; replyTo?: ChatMessage | null; voiceDuration?: number; anonymous?: boolean };
 
 export function Thread({ id }: { id: string }) {
   const { user } = useAuth();
   const myId = user!.id;
   const qc = useQueryClient();
   const router = useRouter();
-  const { startCall, busy: inCall } = useCall();
+  const { startCall, busy: oneToOneBusy } = useCall();
+  const groupCall = useGroupCall();
+  const inCall = oneToOneBusy || !!groupCall.active;
+  // Group chats: send as yourself or anonymously (remembered per chat while the page is open)
+  const [anonMode, setAnonMode] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   const topSentinel = useRef<HTMLDivElement>(null);
   const prevHeight = useRef<number | null>(null);
@@ -79,6 +84,10 @@ export function Thread({ id }: { id: string }) {
     enabled: searchOpen && q.trim().length > 0,
   });
   const c = convQ.data;
+  // Is a group call running here? (kept live by gcall:state events)
+  const isGroupChat = !!c?.isGroup;
+  const { watch: watchGroupCall } = groupCall;
+  useEffect(() => { if (isGroupChat) watchGroupCall(id); }, [id, isGroupChat, watchGroupCall]);
   const messages = useMemo(() => (msgsQ.data ? [...msgsQ.data.pages].reverse().flatMap((p) => p.messages) : []), [msgsQ.data]);
   const newest = messages.at(-1);
   const typers = useTyping(id);
@@ -173,6 +182,7 @@ export function Thread({ id }: { id: string }) {
       media: (p.media ?? []).map((m) => ({ id: m.id, url: m.url, type: m.kind, mime: m.mime, ...(p.voiceDuration ? { duration: p.voiceDuration } : {}) })),
       unsent: false,
       removed: false,
+      anonymous: !!p.anonymous,
       sender: { id: myId, username: user!.username, displayName: user!.displayName, avatarUrl: user!.avatarUrl, isVerified: user!.isVerified },
       replyTo: reply
         ? { id: reply.id, senderId: reply.sender?.id ?? null, senderName: reply.sender?.displayName ?? null, kind: reply.kind, content: reply.content, hasMedia: reply.media.length > 0, unsent: reply.unsent }
@@ -186,7 +196,7 @@ export function Thread({ id }: { id: string }) {
     retryMap.current.set(temp.id, { ...p, replyTo: reply });
     appendMessage(qc, id, temp);
     setReplyTo(null);
-    post<{ message: ChatMessage }>(`/conversations/${id}/messages`, { content: p.content, mediaIds: p.mediaIds, heart: p.heart, replyToId: reply?.id ?? null, clientId, voiceDuration: p.voiceDuration })
+    post<{ message: ChatMessage }>(`/conversations/${id}/messages`, { content: p.content, mediaIds: p.mediaIds, heart: p.heart, replyToId: reply?.id ?? null, clientId, voiceDuration: p.voiceDuration, anonymous: p.anonymous || undefined })
       .then(({ message }) => {
         appendMessage(qc, id, message, clientId);
         retryMap.current.delete(temp.id);
@@ -271,6 +281,11 @@ export function Thread({ id }: { id: string }) {
   const canCall = !!other && !c.isGroup && c.status === "accepted" && !c.blockedByMe && !c.blockedMe && !other.deactivated;
   const call = (kind: "audio" | "video") => other && startCall(id, { id: other.id, displayName: other.displayName, avatarUrl: other.avatarUrl, username: other.username }, kind);
 
+  // Group calls: anyone in the group can start one, or join the one already running
+  const canGroupCall = c.isGroup && c.status === "accepted" && c.participants.length > 0;
+  const groupCallHere = groupCall.calls[id] ?? null;
+  const inThisGroupCall = groupCall.active?.conversationId === id;
+
   const receiptFor = (m: ChatMessage): Receipt => {
     if (m.sender?.id !== myId) return null;
     if (m.failed) return "failed";
@@ -329,6 +344,16 @@ export function Thread({ id }: { id: string }) {
                 </button>
               </>
             )}
+            {canGroupCall && !groupCallHere && (
+              <>
+                <button onClick={() => groupCall.start(id, name, "audio")} disabled={inCall} className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40" aria-label="Group voice call" title="Group voice call">
+                  <Phone className="size-5" />
+                </button>
+                <button onClick={() => groupCall.start(id, name, "video")} disabled={inCall} className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40" aria-label="Group video call" title="Group video call">
+                  <Video className="size-5" />
+                </button>
+              </>
+            )}
             <button onClick={() => setSearchOpen(true)} className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Search in chat">
               <Search className="size-5" />
             </button>
@@ -348,6 +373,20 @@ export function Thread({ id }: { id: string }) {
           </>
         )}
       </header>
+
+      {/* Group call running in this chat → join banner */}
+      {groupCallHere && !inThisGroupCall && (
+        <div className="flex items-center gap-3 border-b bg-green-500/10 px-4 py-2 text-sm">
+          <span className="relative flex size-2.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-green-500 opacity-60" /><span className="relative inline-flex size-2.5 rounded-full bg-green-500" /></span>
+          <span className="min-w-0 flex-1 truncate">
+            <b className="font-semibold">{groupCallHere.kind === "video" ? "Video" : "Voice"} call in progress</b>
+            <span className="text-muted-foreground"> · {groupCallHere.participants.map((p) => p.displayName.split(" ")[0]).join(", ")}</span>
+          </span>
+          <Button size="sm" className="h-8 rounded-full bg-green-600 hover:bg-green-700" disabled={inCall} onClick={() => groupCall.join(groupCallHere.callId, id, name, groupCallHere.kind)}>
+            {groupCallHere.kind === "video" ? <Video /> : <Phone />} Join
+          </Button>
+        </div>
+      )}
 
       {/* ── Pinned message bar ── */}
       {c.pinnedMessage && !searchOpen && (
@@ -403,7 +442,8 @@ export function Thread({ id }: { id: string }) {
               );
             }
             const same = (a?: ChatMessage, b?: ChatMessage) =>
-              !!a && !!b && a.kind !== "system" && b.kind !== "system" && a.sender?.id === b.sender?.id &&
+              // Anonymous messages never group (two in a row may be from different people)
+              !!a && !!b && a.kind !== "system" && b.kind !== "system" && !!a.sender && a.sender.id === b.sender?.id && !!a.anonymous === !!b.anonymous &&
               sameDay(a.createdAt, b.createdAt) && Math.abs(new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) < GROUP_GAP;
             const withPrev = same(prev, m) && !newDay;
             const withNext = same(m, next);
@@ -433,7 +473,7 @@ export function Thread({ id }: { id: string }) {
                   onReport={() => setReporting(m.id)}
                   onRetry={() => retry(m)}
                   onJumpTo={jumpTo}
-                  onCallBack={canCall && !inCall ? call : undefined}
+                  onCallBack={canCall && !inCall ? call : canGroupCall && !inCall && !groupCallHere ? (k) => groupCall.start(id, name, k) : undefined}
                 />
               </Fragment>
             );
@@ -507,10 +547,13 @@ export function Thread({ id }: { id: string }) {
       ) : (
         <Composer
           conversationId={id}
+          isGroup={c.isGroup}
+          anonymous={c.isGroup && anonMode}
+          onToggleAnonymous={c.isGroup ? () => setAnonMode((v) => !v) : undefined}
           replyTo={replyTo}
           editing={editing}
           onCancel={() => { setReplyTo(null); setEditing(null); }}
-          onSend={(p) => send(p)}
+          onSend={(p) => send({ ...p, anonymous: c.isGroup && anonMode })}
           onSaveEdit={saveEdit}
           myId={myId}
         />

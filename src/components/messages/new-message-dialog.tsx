@@ -29,7 +29,7 @@ export function NewMessageDialog({
   onOpenChange,
   onPick,
   exclude = [],
-  title = "New message",
+  title = "New group or chat",
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;

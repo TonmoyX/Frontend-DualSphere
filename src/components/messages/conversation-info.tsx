@@ -1,12 +1,12 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Ban, BellOff, LogOut, Pencil, Trash2, UserPlus } from "lucide-react";
+import { Ban, BellOff, Camera, LogOut, Pencil, Trash2, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { UserAvatar, VerifiedMark } from "@/components/common/bits";
+import { Spinner, UserAvatar, VerifiedMark } from "@/components/common/bits";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -16,6 +16,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Switch } from "@/components/ui/switch";
 import { del, errorMessage, patch, post } from "@/lib/api";
 import type { Conversation } from "@/lib/types";
+import { uploadMedia } from "@/lib/upload";
+import { useSettings } from "@/providers/settings-provider";
+import { ConversationAvatar } from "./chat-avatar";
 import { conversationName, dmKeys } from "./dm";
 import { NewMessageDialog } from "./new-message-dialog";
 
@@ -28,6 +31,26 @@ export function ConversationInfo({ c, open, onOpenChange }: { c: Conversation; o
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const other = !c.isGroup ? c.participants[0] : undefined;
+  const { limits } = useSettings();
+  const photoInput = useRef<HTMLInputElement>(null);
+  const [photoBusy, setPhotoBusy] = useState<number | null>(null); // upload progress %
+
+  const changePhoto = async (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("Choose an image");
+    if (file.size > limits.maxImageMb * 1024 * 1024) return toast.error(`Images can be up to ${limits.maxImageMb} MB`);
+    setPhotoBusy(0);
+    try {
+      const m = await uploadMedia(file, "group", (p) => setPhotoBusy(p));
+      await patch(`/conversations/${c.id}`, { avatarMediaId: m.id });
+      toast.success("Group photo updated");
+      refresh();
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setPhotoBusy(null);
+    }
+  };
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: dmKeys.conv(c.id) });
@@ -57,6 +80,43 @@ export function ConversationInfo({ c, open, onOpenChange }: { c: Conversation; o
           <SheetHeader className="border-b">
             <SheetTitle className="font-sans text-base tracking-normal">Details</SheetTitle>
           </SheetHeader>
+
+          {c.isGroup && (
+            <div className="flex flex-col items-center gap-2 border-b px-4 pt-5 pb-4">
+              <button
+                type="button"
+                onClick={() => photoInput.current?.click()}
+                disabled={photoBusy !== null}
+                className="group relative rounded-full"
+                aria-label="Change group photo"
+                title="Change group photo"
+              >
+                <ConversationAvatar c={c} size={96} />
+                <span className="absolute inset-0 grid place-items-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100">
+                  <Camera className="size-6" />
+                </span>
+                {photoBusy !== null && (
+                  <span className="absolute inset-0 grid place-items-center rounded-full bg-black/55 text-sm font-semibold text-white">
+                    {photoBusy < 100 ? `${photoBusy}%` : <Spinner />}
+                  </span>
+                )}
+                <span className="absolute right-0 bottom-0 grid size-8 place-items-center rounded-full border-2 border-background bg-primary text-primary-foreground shadow">
+                  <Camera className="size-4" />
+                </span>
+              </button>
+              <input ref={photoInput} type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif,image/avif" onChange={(e) => { void changePhoto(e.target.files?.[0]); e.target.value = ""; }} />
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => photoInput.current?.click()} disabled={photoBusy !== null}>
+                  <Camera /> {c.avatarUrl ? "Change photo" : "Add group photo"}
+                </Button>
+                {c.avatarUrl && (
+                  <Button size="sm" variant="ghost" className="text-destructive" disabled={photoBusy !== null} onClick={() => run(() => patch(`/conversations/${c.id}`, { avatarMediaId: null }), "Group photo removed")}>
+                    <Trash2 /> Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1 px-4 py-2">
             <label className="flex items-center justify-between py-2 text-[15px]">

@@ -250,12 +250,14 @@ export interface Conversation {
   id: string;
   isGroup: boolean;
   title: string | null;
+  /** Group photo (groups only) */
+  avatarUrl?: string | null;
   status: "accepted" | "pending";
   myRole: "admin" | "member";
   muted: boolean;
   unreadCount: number;
   lastMessageAt: string;
-  lastMessage: { id: string; senderId: string | null; kind: string; preview: string; createdAt: string } | null;
+  lastMessage: { id: string; senderId: string | null; kind: string; preview: string; createdAt: string; anonymous?: boolean } | null;
   memberCount: number;
   participants: ChatUser[];
   blockedByMe: boolean;
@@ -272,12 +274,14 @@ export interface ChatMessage {
   media: Media[];
   unsent: boolean;
   removed: boolean;
+  /** Sent anonymously in a group: `sender` is null for everyone except the person who sent it. */
+  anonymous?: boolean;
   sender: { id: string; username: string; displayName: string; avatarUrl: string | null; isVerified: boolean } | null;
   replyTo: { id: string; senderId: string | null; senderName: string | null; kind: string; content: string; hasMedia: boolean; unsent: boolean } | null;
   reactions: { emoji: string; userId: string }[];
   editedAt: string | null;
   forwardedFrom: { name: string; userId: string | null } | null;
-  call?: { kind: "audio" | "video"; status: "ended" | "missed" | "declined" | "busy"; duration: number } | null;
+  call?: { kind: "audio" | "video"; status: "ended" | "missed" | "declined" | "busy"; duration: number; group?: boolean; participants?: number } | null;
   storyRef?: { storyId: string; kind: "image" | "video" | "text"; mediaUrl: string | null; text: string | null; background: string | null; action: "reply" | "reaction" } | null;
   createdAt: string;
   // client-only

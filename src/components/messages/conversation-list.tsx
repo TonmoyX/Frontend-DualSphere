@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BellOff, Check, CheckCheck, Pencil, Pin, PinOff, Search, Trash2, BellRing } from "lucide-react";
+import { BellOff, Check, CheckCheck, Pin, PinOff, Plus, Search, Trash2, BellRing, Users } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -55,7 +55,8 @@ function Row({ c, active, myId }: { c: Conversation; active: boolean; myId?: str
                   </span>
                 ) : lm ? (
                   <>
-                    {mine && <span className={active ? "" : "text-foreground/80"}>You: </span>}
+                    {mine && <span className={active ? "" : "text-foreground/80"}>{lm.anonymous ? "You (anonymous): " : "You: "}</span>}
+                    {!mine && lm.anonymous && <span className={active ? "" : "text-anon"}>Anonymous: </span>}
                     {lm.preview}
                   </>
                 ) : (
@@ -161,14 +162,19 @@ export function ConversationList() {
         {data?.map((c) => <Row key={c.id} c={c} active={params?.id === c.id} myId={user?.id} />)}
       </div>
 
-      {/* Floating "new message" (Telegram) */}
+      {/* Floating "new chat / new group" — group icon with a + so it reads as "create a group" */}
       <button
         onClick={() => setComposing(true)}
         className="absolute right-4 bottom-4 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105"
-        aria-label="New message"
-        title="New message"
+        aria-label="New group or chat"
+        title="New group or chat"
       >
-        <Pencil className="size-6" />
+        <span className="relative">
+          <Users className="size-6" />
+          <span className="absolute -right-2.5 -bottom-2 grid size-5 place-items-center rounded-full bg-emerald-400 text-white shadow-md shadow-emerald-500/40 ring-2 ring-primary">
+            <Plus className="size-3.5" strokeWidth={3.5} />
+          </span>
+        </span>
       </button>
 
       <NewMessageDialog open={composing} onOpenChange={setComposing} />

@@ -2,11 +2,11 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { format } from "date-fns";
-import { AlertCircle, Check, CheckCheck, ChevronDown, Clock3, Copy, Flag, Forward, Pencil, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Pin, PinOff, Reply, Trash2, Video } from "lucide-react";
+import { AlertCircle, Check, CheckCheck, ChevronDown, Clock3, Copy, Flag, Forward, Pencil, Phone, PhoneIncoming, PhoneMissed, PhoneOutgoing, Pin, PinOff, Reply, Trash2, VenetianMask, Video } from "lucide-react";
 import { VoicePlayer, formatDuration } from "./voice";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { UserAvatar } from "@/components/common/bits";
+import { AnonAvatar, UserAvatar } from "@/components/common/bits";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -128,6 +128,7 @@ export function MessageBubble(p: Props) {
     >
       {!p.showAvatar && !mine && <div className="w-8 shrink-0" />}
       {p.showAvatar && !mine && m.sender && <UserAvatar src={m.sender.avatarUrl} name={m.sender.displayName} className="size-8 shrink-0 text-[10px]" />}
+      {p.showAvatar && !mine && !m.sender && m.anonymous && <AnonAvatar className="size-8 shrink-0" />}
 
       <div className={cn("relative flex max-w-[78%] min-w-0 items-center gap-1 sm:max-w-[65%]", mine ? "flex-row-reverse" : "flex-row")}>
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
@@ -151,6 +152,7 @@ export function MessageBubble(p: Props) {
               ) : linkOnly ? (
                 <div className={cn("flex flex-col", mine ? "items-end" : "items-start", m.pending && "opacity-70")}>
                   {p.showName && m.sender && <div className={cn("mb-0.5 px-1 text-[13px] font-semibold", nameColor(m.sender.id))}>{m.sender.displayName}</div>}
+                  {p.showName && !mine && !m.sender && m.anonymous && <div className="mb-0.5 flex items-center gap-1 text-[13px] font-semibold text-anon"><VenetianMask className="size-3.5" /> Anonymous</div>}
                   <div className="relative">
                     <LinkPreview link={link!} mine={mine} flush />
                     <span className="pointer-events-none absolute top-2 left-2">{meta(true)}</span>
@@ -170,6 +172,8 @@ export function MessageBubble(p: Props) {
                   {last && <Tail mine={mine} />}
 
                   {p.showName && m.sender && <div className={cn("mb-0.5 text-[13px] font-semibold", nameColor(m.sender.id))}>{m.sender.displayName}</div>}
+                  {p.showName && !mine && !m.sender && m.anonymous && <div className="mb-0.5 flex items-center gap-1 text-[13px] font-semibold text-anon"><VenetianMask className="size-3.5" /> Anonymous</div>}
+                  {mine && m.anonymous && <div className="mb-0.5 flex items-center gap-1 text-[11px] font-medium text-white/80"><VenetianMask className="size-3" /> Sent anonymously</div>}
 
                   {m.forwardedFrom && (
                     <div className={cn("mb-1 text-[13px]", mine ? "text-white/85" : "text-primary")}>
@@ -217,10 +221,10 @@ export function MessageBubble(p: Props) {
                       <div className="min-w-0 flex-1">
                         <div className="text-[15px] font-semibold">
                           {m.call.status === "ended"
-                            ? `${mine ? "Outgoing" : "Incoming"} ${m.call.kind === "video" ? "video call" : "call"}`
+                            ? m.call.group ? `Group ${m.call.kind === "video" ? "video call" : "call"}${m.call.participants ? ` · ${m.call.participants} joined` : ""}` : `${mine ? "Outgoing" : "Incoming"} ${m.call.kind === "video" ? "video call" : "call"}`
                             : mine
                               ? m.call.status === "declined" ? "Call declined" : m.call.status === "busy" ? "Busy" : "No answer"
-                              : `Missed ${m.call.kind === "video" ? "video call" : "call"}`}
+                              : m.call.group ? `Group ${m.call.kind === "video" ? "video call" : "call"} · nobody joined` : `Missed ${m.call.kind === "video" ? "video call" : "call"}`}
                         </div>
                         <div className={cn("text-xs", mine ? "text-white/75" : "text-muted-foreground")}>
                           {time}{m.call.status === "ended" && m.call.duration ? ` · ${formatDuration(m.call.duration)}` : ""}

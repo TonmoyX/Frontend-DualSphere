@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Heart, Mic, Paperclip, Pencil, Reply, SendHorizontal, Smile, Trash2, X } from "lucide-react";
+import { Check, Heart, Mic, Paperclip, Pencil, Reply, SendHorizontal, Smile, Trash2, VenetianMask, X } from "lucide-react";
 import { RecordingBar, useVoiceRecorder } from "./voice";
 import { Spinner } from "@/components/common/bits";
 import { useEffect, useRef, useState } from "react";
@@ -35,8 +35,15 @@ export function Composer({
   onSend,
   onSaveEdit,
   myId,
+  isGroup = false,
+  anonymous = false,
+  onToggleAnonymous,
 }: {
   conversationId: string;
+  isGroup?: boolean;
+  /** Group chats: the next messages are sent anonymously */
+  anonymous?: boolean;
+  onToggleAnonymous?: () => void;
   replyTo: ChatMessage | null;
   editing: ChatMessage | null;
   onCancel: () => void;
@@ -50,6 +57,8 @@ export function Composer({
   const ta = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const typingRef = useRef<{ on: boolean; timer?: ReturnType<typeof setTimeout> }>({ on: false });
+  const anonymousRef = useRef(anonymous);
+  useEffect(() => { anonymousRef.current = anonymous; }, [anonymous]);
   const voice = useVoiceRecorder();
   const [sendingVoice, setSendingVoice] = useState(false);
 
@@ -82,6 +91,7 @@ export function Composer({
     if (t.timer) clearTimeout(t.timer);
     if (on) t.timer = setTimeout(() => setTyping(false), 3000);
     if (t.on === on) return;
+    if (on && anonymousRef.current) return; // "X is typing…" would give an anonymous sender away
     t.on = on;
     getSocket().emit("dm:typing", { conversationId, typing: on });
   };
@@ -191,8 +201,25 @@ export function Composer({
           </button>
         </div>
       ) : (
+      <>
+      {isGroup && anonymous && !editing && (
+        <div className="mb-1.5 flex items-center gap-1.5 px-2 text-xs font-medium text-anon">
+          <VenetianMask className="size-3.5" /> Sending anonymously — others see &ldquo;Anonymous&rdquo;. Admins can still see who sent it.
+        </div>
+      )}
       <div className="flex items-end gap-1.5">
-        <div className="flex min-w-0 flex-1 items-end rounded-3xl bg-muted px-1.5">
+        <div className={cn("flex min-w-0 flex-1 items-end rounded-3xl bg-muted px-1.5", isGroup && anonymous && !editing && "ring-2 ring-anon/50")}>
+          {onToggleAnonymous && !editing && (
+            <button
+              onClick={onToggleAnonymous}
+              className={cn("mb-1 grid size-9 shrink-0 place-items-center rounded-full transition-colors", anonymous ? "bg-anon/20 text-anon" : "text-muted-foreground hover:text-foreground")}
+              aria-pressed={anonymous}
+              aria-label={anonymous ? "Send as yourself" : "Send anonymously"}
+              title={anonymous ? "Sending anonymously — click to send as yourself" : "Send anonymously"}
+            >
+              <VenetianMask className="size-5" />
+            </button>
+          )}
           {features.mediaUploadsEnabled && !editing && (
             <>
               <input
@@ -219,7 +246,7 @@ export function Composer({
               if (e.key === "Escape" && bar) { onCancel(); if (editing) setText(""); }
             }}
             enterKeyHint="send"
-            placeholder="Message"
+            placeholder={isGroup && anonymous && !editing ? "Message anonymously" : "Message"}
             aria-label="Message"
             className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-2 py-3 text-[15px] leading-5 outline-none placeholder:text-muted-foreground"
           />
@@ -269,6 +296,7 @@ export function Composer({
           </button>
         )}
       </div>
+      </>
       )}
     </div>
   );
